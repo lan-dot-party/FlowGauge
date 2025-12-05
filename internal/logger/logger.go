@@ -83,7 +83,13 @@ func Sync() {
 }
 
 // IsDevelopment returns true if running in a terminal (interactive mode)
+// or if FLOWGAUGE_LOG_FORMAT=console is set (useful for systemd)
 func IsDevelopment() bool {
+	// Check environment variable for explicit console format
+	if os.Getenv("FLOWGAUGE_LOG_FORMAT") == "console" {
+		return true
+	}
+	// Auto-detect terminal
 	fileInfo, _ := os.Stdout.Stat()
 	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }

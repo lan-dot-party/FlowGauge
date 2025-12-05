@@ -13,8 +13,14 @@ Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
 
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=flowgauge
+
 # Environment
 Environment="FLOWGAUGE_CONFIG=/etc/flowgauge/config.yaml"
+Environment="FLOWGAUGE_LOG_FORMAT=console"
 
 # Directories
 WorkingDirectory=/var/lib/flowgauge
