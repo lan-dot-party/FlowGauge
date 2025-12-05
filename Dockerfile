@@ -30,7 +30,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o flowgauge ./cmd/flowgauge
 
 # Runtime stage
-FROM alpine:3.20
+FROM alpine:3.23
 
 # Labels
 LABEL org.opencontainers.image.title="FlowGauge"
