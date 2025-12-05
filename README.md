@@ -119,7 +119,7 @@ docker run -d \
 
 ## 📖 Documentation
 
-- [API Documentation](docs/api.md) - REST API details (coming soon)
+- [API Documentation](docs/api.md) - REST API details & examples
 - [Grafana Integration](grafana/README.md) - Dashboard setup
 
 ## 🤝 Contributing
