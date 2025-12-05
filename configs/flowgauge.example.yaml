@@ -28,6 +28,14 @@ storage:
     path: /var/lib/flowgauge/results.db
   
   # PostgreSQL settings (used when type: postgres)
+  # Requires PostgreSQL 12+ for optimal performance.
+  # The database must be created beforehand; tables are created automatically.
+  #
+  # Example setup:
+  #   CREATE DATABASE flowgauge;
+  #   CREATE USER flowgauge WITH PASSWORD 'your-secure-password';
+  #   GRANT ALL PRIVILEGES ON DATABASE flowgauge TO flowgauge;
+  #
   # postgres:
   #   host: localhost
   #   port: 5432

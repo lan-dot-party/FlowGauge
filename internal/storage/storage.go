@@ -62,7 +62,7 @@ func NewStorage(cfg config.StorageConfig) (Storage, error) {
 	case "sqlite":
 		return NewSQLiteStorage(cfg.SQLite)
 	case "postgres":
-		return nil, fmt.Errorf("PostgreSQL storage not yet implemented")
+		return NewPostgresStorage(cfg.Postgres)
 	default:
 		return nil, fmt.Errorf("unknown storage type: %s", cfg.Type)
 	}
