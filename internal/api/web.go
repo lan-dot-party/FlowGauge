@@ -89,7 +89,9 @@ func (s *Server) handleConnectionChartData(w http.ResponseWriter, r *http.Reques
 	chartData := s.getConnectionChartData(ctx, connectionName, duration)
 	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(chartData)
+	if err := json.NewEncoder(w).Encode(chartData); err != nil {
+		s.logger.Error("Failed to encode chart data", zap.Error(err))
+	}
 }
 
 // getConnectionChartData fetches chart data for a specific connection.

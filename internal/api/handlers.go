@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -211,97 +210,4 @@ func (s *Server) handleGetConnectionStats(w http.ResponseWriter, r *http.Request
 		Data:   stats,
 	})
 }
-
-// handleTriggerTest triggers a speedtest for all connections.
-func (s *Server) handleTriggerTest(w http.ResponseWriter, r *http.Request) {
-	if s.runner == nil {
-		s.writeError(w, http.StatusServiceUnavailable, "Speedtest runner not available")
-		return
-	}
-
-	// Run test in background
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-
-		s.logger.Info("API triggered speedtest for all connections")
-		results, err := s.runner.RunAll(ctx)
-		if err != nil {
-			s.logger.Error("API triggered speedtest failed", zap.Error(err))
-			return
-		}
-
-		// Save results
-		for _, result := range results {
-			dbResult := storage.FromSpeedtestResult(&result)
-			if err := s.storage.SaveResult(ctx, dbResult); err != nil {
-				s.logger.Error("Failed to save result", zap.Error(err))
-			}
-		}
-
-		// Update Prometheus metrics
-		UpdateMetrics(results)
-
-		s.logger.Info("API triggered speedtest completed", zap.Int("results", len(results)))
-	}()
-
-	s.writeJSON(w, http.StatusAccepted, successResponse{
-		Status:  "started",
-		Message: "Speedtest started for all connections",
-	})
-}
-
-// handleTriggerConnectionTest triggers a speedtest for a specific connection.
-func (s *Server) handleTriggerConnectionTest(w http.ResponseWriter, r *http.Request) {
-	if s.runner == nil {
-		s.writeError(w, http.StatusServiceUnavailable, "Speedtest runner not available")
-		return
-	}
-
-	connName := chi.URLParam(r, "connection")
-	if connName == "" {
-		s.writeError(w, http.StatusBadRequest, "Connection name required")
-		return
-	}
-
-	// Verify connection exists
-	conn := s.fullConfig.GetConnectionByName(connName)
-	if conn == nil {
-		s.writeError(w, http.StatusNotFound, "Connection not found")
-		return
-	}
-
-	// Run test in background
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-
-		s.logger.Info("API triggered speedtest", zap.String("connection", connName))
-		result, err := s.runner.RunConnection(ctx, connName)
-		if err != nil {
-			s.logger.Error("API triggered speedtest failed",
-				zap.String("connection", connName),
-				zap.Error(err),
-			)
-			return
-		}
-
-		// Save result
-		dbResult := storage.FromSpeedtestResult(result)
-		if err := s.storage.SaveResult(ctx, dbResult); err != nil {
-			s.logger.Error("Failed to save result", zap.Error(err))
-		}
-
-		// Update Prometheus metrics
-		UpdateMetricsForResult(result)
-
-		s.logger.Info("API triggered speedtest completed", zap.String("connection", connName))
-	}()
-
-	s.writeJSON(w, http.StatusAccepted, successResponse{
-		Status:  "started",
-		Message: "Speedtest started for connection: " + connName,
-	})
-}
-
 

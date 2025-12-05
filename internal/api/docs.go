@@ -495,7 +495,7 @@ func (s *Server) handleAPIDocs(w http.ResponseWriter, r *http.Request) {
 </body>
 </html>`
 
-	w.Write([]byte(html))
+	_, _ = w.Write([]byte(html))
 }
 
 // handleAPIRedirect redirects /api to the docs.

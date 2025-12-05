@@ -102,7 +102,7 @@ func (r *Runner) Run(ctx context.Context, conn WANConnection) (*Result, error) {
 
 	if len(targets) == 0 {
 		result.Error = "no speedtest servers available"
-		return result, fmt.Errorf(result.Error)
+		return result, fmt.Errorf("%s", result.Error)
 	}
 
 	// Use the first (best) server
@@ -167,7 +167,7 @@ func (r *Runner) Run(ctx context.Context, conn WANConnection) (*Result, error) {
 // parseServerID converts server ID string to int.
 func parseServerID(id string) int {
 	var serverID int
-	fmt.Sscanf(id, "%d", &serverID)
+	_, _ = fmt.Sscanf(id, "%d", &serverID)
 	return serverID
 }
 
