@@ -216,7 +216,7 @@ func (s *SQLiteStorage) GetResults(ctx context.Context, filter ResultFilter) ([]
 	if err != nil {
 		return nil, fmt.Errorf("failed to query results: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []TestResult
 	for rows.Next() {

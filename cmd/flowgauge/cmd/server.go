@@ -61,7 +61,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	if err := store.Init(context.Background()); err != nil {
 		return fmt.Errorf("failed to initialize storage: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	// Create speedtest runner
 	var runner *speedtest.MultiWANRunner

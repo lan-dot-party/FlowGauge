@@ -230,7 +230,7 @@ func (s *PostgresStorage) GetResults(ctx context.Context, filter ResultFilter) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to query results: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []TestResult
 	for rows.Next() {
@@ -281,7 +281,7 @@ func (s *PostgresStorage) GetLatestResults(ctx context.Context) ([]TestResult, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to query latest results: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []TestResult
 	for rows.Next() {

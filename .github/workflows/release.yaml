@@ -1,5 +1,7 @@
 # Release Workflow
-# Triggered when a new tag is pushed (e.g., v1.0.0)
+# Triggered when:
+#   - A new release is created on GitHub (via UI)
+#   - A tag matching v* is pushed
 # Creates:
 #   - GitHub Release with binaries
 #   - .deb, .rpm, .apk packages
@@ -9,6 +11,8 @@
 name: Release
 
 on:
+  release:
+    types: [created, published]
   push:
     tags:
       - 'v*'

@@ -58,7 +58,7 @@ func runResults(cmd *cobra.Command, args []string) error {
 	if err := store.Init(context.Background()); err != nil {
 		return fmt.Errorf("failed to initialize storage: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	ctx := context.Background()
 
