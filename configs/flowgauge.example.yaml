@@ -1,0 +1,118 @@
+# FlowGauge Configuration Example
+# ================================
+# Copy this file to /etc/flowgauge/config.yaml and adjust to your needs.
+#
+# Config file search order:
+#   1. Path specified via --config flag
+#   2. FLOWGAUGE_CONFIG environment variable
+#   3. /etc/flowgauge/config.yaml
+#   4. ./config.yaml (current directory)
+
+# General Settings
+# ----------------
+general:
+  # Log level: debug, info, warn, error
+  log_level: info
+  
+  # Directory for application data (database, logs, etc.)
+  data_dir: /var/lib/flowgauge
+
+# Storage Configuration
+# ---------------------
+storage:
+  # Storage backend: sqlite (default) or postgres
+  type: sqlite
+  
+  # SQLite settings (used when type: sqlite)
+  sqlite:
+    path: /var/lib/flowgauge/results.db
+  
+  # PostgreSQL settings (used when type: postgres)
+  # postgres:
+  #   host: localhost
+  #   port: 5432
+  #   database: flowgauge
+  #   user: flowgauge
+  #   password: your-secure-password
+  #   ssl_mode: disable  # disable, require, verify-ca, verify-full
+
+# Web Server Configuration (Dashboard + API)
+# ------------------------------------------
+webserver:
+  # Enable/disable the web server (Dashboard + REST API)
+  enabled: true
+  
+  # Listen address (use 0.0.0.0:8080 for all interfaces)
+  listen: 127.0.0.1:8080
+  
+  # Optional: Basic authentication
+  # auth:
+  #   username: admin
+  #   password: your-secure-password
+
+# Network Connections to Test
+# ---------------------------
+# Define multiple connections for Multi-WAN setups.
+# Each connection can have a specific source IP and DSCP value.
+connections:
+  # Primary WAN connection
+  - name: WAN1-Primary
+    # Source IP to bind to (must exist on this system)
+    # Leave empty to use default routing
+    source_ip: ""
+    # DSCP value for QoS marking (0-63)
+    # Common values:
+    #   0  = Best Effort (default)
+    #   46 = EF (Expedited Forwarding) - Voice
+    #   34 = AF41 - Video
+    #   26 = AF31 - Streaming
+    #   10 = AF11 - Bulk Data
+    dscp: 0
+    # Enable/disable this connection
+    enabled: true
+  
+  # Example: Secondary WAN with specific source IP
+  # - name: WAN2-Backup
+  #   source_ip: 192.168.2.100
+  #   dscp: 0
+  #   enabled: true
+  
+  # Example: Test with EF (Expedited Forwarding) marking
+  # - name: WAN1-VoIP-Test
+  #   source_ip: 192.168.1.100
+  #   dscp: 46
+  #   enabled: true
+
+# Scheduler Configuration
+# -----------------------
+scheduler:
+  # Enable/disable automatic scheduled tests
+  enabled: false
+  
+  # Cron schedule expression
+  # Examples:
+  #   "*/30 * * * *"  - Every 30 minutes
+  #   "0 * * * *"     - Every hour (at minute 0)
+  #   "0 */4 * * *"   - Every 4 hours
+  #   "0 6,18 * * *"  - At 6:00 and 18:00
+  #   "@hourly"       - Alias for every hour
+  schedule: "0 * * * *"
+
+# Speedtest Configuration
+# -----------------------
+speedtest:
+  # Specific server IDs to use (empty = auto-select nearest)
+  # Find server IDs at: https://www.speedtest.net/speedtest-servers.php
+  server_ids: []
+  
+  # Maximum time for a single test
+  timeout: 60s
+  
+  # Test size: auto, small, medium, large
+  # - auto: Automatically determined based on connection speed
+  # - small: ~10MB download, ~5MB upload
+  # - medium: ~50MB download, ~25MB upload  
+  # - large: ~100MB+ download, ~50MB+ upload
+  download_size: auto
+  upload_size: auto
+

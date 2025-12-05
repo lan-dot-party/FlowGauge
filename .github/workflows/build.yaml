@@ -1,0 +1,151 @@
+# Build and Test Workflow
+# Runs on every push and pull request
+
+name: Build & Test
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Build
+        run: |
+          CGO_ENABLED=0 go build -v \
+            -ldflags="-s -w \
+              -X github.com/lan-dot-party/flowgauge/pkg/version.Version=dev \
+              -X github.com/lan-dot-party/flowgauge/pkg/version.Commit=${{ github.sha }} \
+              -X github.com/lan-dot-party/flowgauge/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o flowgauge ./cmd/flowgauge
+
+      - name: Verify binary
+        run: ./flowgauge --version
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowgauge-linux-amd64
+          path: flowgauge
+          retention-days: 7
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 7
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  build-platforms:
+    name: Build (${{ matrix.os }}/${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+          - os: darwin
+            arch: amd64
+          - os: darwin
+            arch: arm64
+          - os: windows
+            arch: amd64
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Build for ${{ matrix.os }}/${{ matrix.arch }}
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0
+        run: |
+          BINARY_NAME="flowgauge"
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            BINARY_NAME="flowgauge.exe"
+          fi
+          go build -v \
+            -ldflags="-s -w \
+              -X github.com/lan-dot-party/flowgauge/pkg/version.Version=dev \
+              -X github.com/lan-dot-party/flowgauge/pkg/version.Commit=${{ github.sha }} \
+              -X github.com/lan-dot-party/flowgauge/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o ${BINARY_NAME} ./cmd/flowgauge
+
+

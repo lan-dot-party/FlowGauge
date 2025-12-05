@@ -1,0 +1,22 @@
+# Grafana Datasource Provisioning für FlowGauge
+# Kopiere diese Datei nach /etc/grafana/provisioning/datasources/
+
+apiVersion: 1
+
+datasources:
+  - name: FlowGauge
+    type: yesoreyeram-infinity-datasource
+    uid: flowgauge
+    access: proxy
+    url: http://localhost:8080
+    isDefault: false
+    jsonData:
+      # Keine Auth - falls du Basic Auth aktiviert hast, unten einkommentieren
+      # tlsSkipVerify: true
+    # Falls Basic Auth aktiviert:
+    # basicAuth: true
+    # basicAuthUser: admin
+    # secureJsonData:
+    #   basicAuthPassword: your-password
+
+
