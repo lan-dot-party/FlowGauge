@@ -1,0 +1,65 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/flowgauge
+
+# Build output
+/bin/
+/dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories
+/vendor/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Debug files
+__debug_bin*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Config files (keep example, ignore actual)
+/configs/config.yaml
+!/configs/flowgauge.example.yaml
+
+# Data files
+*.db
+*.db-shm
+*.db-wal
+/data/
+
+# Log files
+*.log
+/logs/
+
+# Temporary files
+/tmp/
+*.tmp
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+
+config.yaml

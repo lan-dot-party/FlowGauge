@@ -1,0 +1,57 @@
+[Unit]
+Description=FlowGauge Bandwidth Monitor
+Documentation=https://github.com/lan-dot-party/flowgauge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=flowgauge
+Group=flowgauge
+ExecStart=/usr/bin/flowgauge server
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=flowgauge
+
+# Environment
+Environment="FLOWGAUGE_CONFIG=/etc/flowgauge/config.yaml"
+Environment="FLOWGAUGE_LOG_FORMAT=console"
+
+# Directories
+WorkingDirectory=/var/lib/flowgauge
+RuntimeDirectory=flowgauge
+StateDirectory=flowgauge
+ConfigurationDirectory=flowgauge
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+
+# Allow network access and DSCP marking
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+
+# Allow write to data directory
+ReadWritePaths=/var/lib/flowgauge
+
+# Limit resource usage
+MemoryMax=256M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target
+
+
