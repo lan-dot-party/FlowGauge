@@ -5,9 +5,14 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
 )
+
+// maxChannelNameLength mirrors discord.MaxChannelNameLength. It is duplicated
+// here because internal/discord imports this package.
+const maxChannelNameLength = 100
 
 // DefaultConfigPaths defines the search order for configuration files.
 var DefaultConfigPaths = []string{
@@ -165,6 +170,48 @@ func Validate(cfg *Config) error {
 		return fmt.Errorf("invalid speedtest upload_size: %q", cfg.Speedtest.UploadSize)
 	}
 
+	// Validate Discord config
+	if err := validateDiscord(cfg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateDiscord checks the Discord settings. Everything is optional while the
+// integration is disabled.
+func validateDiscord(cfg *Config) error {
+	if !cfg.Discord.Enabled {
+		return nil
+	}
+
+	if cfg.Discord.BotToken == "" {
+		return fmt.Errorf("discord: bot_token is required when discord is enabled")
+	}
+
+	if cfg.Discord.ChannelID == "" {
+		return fmt.Errorf("discord: channel_id is required when discord is enabled")
+	}
+	for _, r := range cfg.Discord.ChannelID {
+		if r < '0' || r > '9' {
+			return fmt.Errorf("discord: invalid channel_id %q (must be the numeric channel ID, copy it via Discord's developer mode)", cfg.Discord.ChannelID)
+		}
+	}
+
+	if cfg.Discord.Timeout < 0 {
+		return fmt.Errorf("discord: timeout must not be negative")
+	}
+
+	// A template that always exceeds Discord's 100 character limit would be
+	// silently truncated on every run, so reject it here instead.
+	if n := utf8.RuneCountInString(cfg.Discord.NameTemplate); n > maxChannelNameLength {
+		return fmt.Errorf("discord: name_template is %d characters long, Discord allows at most %d", n, maxChannelNameLength)
+	}
+
+	if len(cfg.GetTotalConnections()) == 0 {
+		return fmt.Errorf("discord is enabled but no enabled connection has counts_to_total, the reported bandwidth would always be 0")
+	}
+
 	return nil
 }
 
@@ -185,16 +232,18 @@ func WriteExample(path string) error {
 	// Add example connections
 	cfg.Connections = []ConnectionConfig{
 		{
-			Name:     "WAN1-Primary",
-			SourceIP: "192.168.1.100",
-			DSCP:     0,
-			Enabled:  true,
+			Name:          "WAN1-Primary",
+			SourceIP:      "192.168.1.100",
+			DSCP:          0,
+			Enabled:       true,
+			CountsToTotal: boolPtr(true),
 		},
 		{
-			Name:     "WAN2-Backup",
-			SourceIP: "192.168.2.100",
-			DSCP:     46,
-			Enabled:  true,
+			Name:          "WAN2-Backup",
+			SourceIP:      "192.168.2.100",
+			DSCP:          46,
+			Enabled:       true,
+			CountsToTotal: boolPtr(true),
 		},
 	}
 
@@ -216,3 +265,7 @@ func WriteExample(path string) error {
 	return nil
 }
 
+// boolPtr returns a pointer to v, for optional bool config fields.
+func boolPtr(v bool) *bool {
+	return &v
+}

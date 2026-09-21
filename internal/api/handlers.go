@@ -35,17 +35,18 @@ type healthResponse struct {
 type resultsResponse struct {
 	Results []storage.TestResult `json:"results"`
 	Meta    struct {
-		Total   int `json:"total"`
-		Limit   int `json:"limit"`
-		Offset  int `json:"offset"`
+		Total  int `json:"total"`
+		Limit  int `json:"limit"`
+		Offset int `json:"offset"`
 	} `json:"meta"`
 }
 
 type connectionResponse struct {
-	Name     string `json:"name"`
-	SourceIP string `json:"source_ip,omitempty"`
-	DSCP     int    `json:"dscp"`
-	Enabled  bool   `json:"enabled"`
+	Name          string `json:"name"`
+	SourceIP      string `json:"source_ip,omitempty"`
+	DSCP          int    `json:"dscp"`
+	Enabled       bool   `json:"enabled"`
+	CountsToTotal bool   `json:"counts_to_total"`
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, status int, data interface{}) {
@@ -169,10 +170,11 @@ func (s *Server) handleGetConnections(w http.ResponseWriter, r *http.Request) {
 	connections := make([]connectionResponse, 0, len(s.fullConfig.Connections))
 	for _, conn := range s.fullConfig.Connections {
 		connections = append(connections, connectionResponse{
-			Name:     conn.Name,
-			SourceIP: conn.SourceIP,
-			DSCP:     conn.DSCP,
-			Enabled:  conn.Enabled,
+			Name:          conn.Name,
+			SourceIP:      conn.SourceIP,
+			DSCP:          conn.DSCP,
+			Enabled:       conn.Enabled,
+			CountsToTotal: conn.IncludeInTotal(),
 		})
 	}
 
@@ -210,4 +212,3 @@ func (s *Server) handleGetConnectionStats(w http.ResponseWriter, r *http.Request
 		Data:   stats,
 	})
 }
-

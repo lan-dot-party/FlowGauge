@@ -38,6 +38,12 @@ Examples:
 		fmt.Printf("   Storage: %s\n", cfg.Storage.Type)
 		fmt.Printf("   Webserver: %s (enabled: %t)\n", cfg.Webserver.Listen, cfg.Webserver.Enabled)
 		fmt.Printf("   Scheduler: %s (enabled: %t)\n", cfg.Scheduler.Schedule, cfg.Scheduler.Enabled)
+		if cfg.Discord.Enabled {
+			fmt.Printf("   Discord: channel %s, %d connection(s) count to the total\n",
+				cfg.Discord.ChannelID, len(cfg.GetTotalConnections()))
+		} else {
+			fmt.Printf("   Discord: disabled\n")
+		}
 
 		return nil
 	},
@@ -86,7 +92,7 @@ Examples:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Read the example config file
 		examplePath := "configs/flowgauge.example.yaml"
-		
+
 		data, err := os.ReadFile(examplePath)
 		if err != nil {
 			// If example file not found, generate from defaults
@@ -99,12 +105,12 @@ Examples:
 					Enabled:  true,
 				},
 			}
-			
+
 			yamlData, err := yaml.Marshal(cfg)
 			if err != nil {
 				return fmt.Errorf("failed to generate config: %w", err)
 			}
-			
+
 			fmt.Println("# FlowGauge Configuration")
 			fmt.Println("# Generated from defaults")
 			fmt.Println()
@@ -123,4 +129,3 @@ func init() {
 	configCmd.AddCommand(configShowCmd)
 	configCmd.AddCommand(configInitCmd)
 }
-

@@ -4,17 +4,22 @@ import "time"
 
 // Default values for configuration
 const (
-	DefaultLogLevel         = "info"
-	DefaultDataDir          = "/var/lib/flowgauge"
-	DefaultStorageType      = "sqlite"
-	DefaultSQLitePath       = "/var/lib/flowgauge/results.db"
-	DefaultWebserverListen  = "127.0.0.1:8080"
-	DefaultSchedule         = "0 * * * *" // Every hour
-	DefaultTestTimeout      = 60 * time.Second
-	DefaultDownloadSize     = "auto"
-	DefaultUploadSize       = "auto"
-	DefaultPostgresPort     = 5432
-	DefaultPostgresSSL      = "disable"
+	DefaultLogLevel        = "info"
+	DefaultDataDir         = "/var/lib/flowgauge"
+	DefaultStorageType     = "sqlite"
+	DefaultSQLitePath      = "/var/lib/flowgauge/results.db"
+	DefaultWebserverListen = "127.0.0.1:8080"
+	DefaultSchedule        = "0 * * * *" // Every hour
+	DefaultTestTimeout     = 60 * time.Second
+	DefaultDownloadSize    = "auto"
+	DefaultUploadSize      = "auto"
+	DefaultPostgresPort    = 5432
+	DefaultPostgresSSL     = "disable"
+
+	// DefaultDiscordNameTemplate is the channel name rendered after a test run.
+	DefaultDiscordNameTemplate = "📶: ↓ {download} MBit/s | ↑ {upload} MBit/s | 🏓 {ping} ms"
+	// DefaultDiscordTimeout is the timeout for a single Discord API call.
+	DefaultDiscordTimeout = 15 * time.Second
 )
 
 // NewDefault creates a new Config with all default values applied.
@@ -48,6 +53,11 @@ func NewDefault() *Config {
 			Timeout:      DefaultTestTimeout,
 			DownloadSize: DefaultDownloadSize,
 			UploadSize:   DefaultUploadSize,
+		},
+		Discord: DiscordConfig{
+			Enabled:      false,
+			NameTemplate: DefaultDiscordNameTemplate,
+			Timeout:      DefaultDiscordTimeout,
 		},
 	}
 }
@@ -100,6 +110,14 @@ func ApplyDefaults(cfg *Config) {
 		cfg.Speedtest.ServerIDs = []int{}
 	}
 
+	// Discord defaults
+	if cfg.Discord.NameTemplate == "" {
+		cfg.Discord.NameTemplate = DefaultDiscordNameTemplate
+	}
+	if cfg.Discord.Timeout == 0 {
+		cfg.Discord.Timeout = DefaultDiscordTimeout
+	}
+
 	// Note: YAML unmarshal sets bool to false by default for connections,
 	// so we can't distinguish between "enabled: false" and unset.
 	// Users must explicitly set "enabled: true" for active connections.
@@ -116,6 +134,18 @@ func (c *Config) GetEnabledConnections() []ConnectionConfig {
 	return enabled
 }
 
+// GetTotalConnections returns the enabled connections that count towards the
+// aggregated total bandwidth.
+func (c *Config) GetTotalConnections() []ConnectionConfig {
+	var total []ConnectionConfig
+	for _, conn := range c.Connections {
+		if conn.Enabled && conn.IncludeInTotal() {
+			total = append(total, conn)
+		}
+	}
+	return total
+}
+
 // GetConnectionByName returns a connection by its name, or nil if not found.
 func (c *Config) GetConnectionByName(name string) *ConnectionConfig {
 	for i := range c.Connections {
@@ -125,4 +155,3 @@ func (c *Config) GetConnectionByName(name string) *ConnectionConfig {
 	}
 	return nil
 }
-

@@ -246,13 +246,15 @@ curl "http://localhost:8080/api/v1/connections"
       "name": "WAN1-Primary",
       "source_ip": "192.168.1.100",
       "dscp": 0,
-      "enabled": true
+      "enabled": true,
+      "counts_to_total": true
     },
     {
       "name": "WAN2-Backup",
       "source_ip": "192.168.2.100",
       "dscp": 46,
-      "enabled": true
+      "enabled": true,
+      "counts_to_total": false
     }
   ]
 }
@@ -266,6 +268,7 @@ curl "http://localhost:8080/api/v1/connections"
 | `source_ip` | string | Source IP address for binding |
 | `dscp` | integer | DSCP value for QoS marking (0-63) |
 | `enabled` | boolean | Whether the connection is active |
+| `counts_to_total` | boolean | Whether the connection is added to the total bandwidth (Discord integration); `true` unless `counts_to_total: false` is configured |
 
 ---
 

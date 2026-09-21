@@ -78,18 +78,27 @@ connections:
     dscp: 0
     # Enable/disable this connection
     enabled: true
+    # Whether this connection's bandwidth is added to the total bandwidth
+    # reported to Discord (see below).
+    # Default when omitted: true
+    counts_to_total: true
   
   # Example: Secondary WAN with specific source IP
+  # In a multi-WAN setup both lines add up, so both count towards the total.
   # - name: WAN2-Backup
   #   source_ip: 192.168.2.100
   #   dscp: 0
   #   enabled: true
+  #   counts_to_total: true
   
   # Example: Test with EF (Expedited Forwarding) marking
+  # This measures the same physical line again, just with a different DSCP
+  # marking - counting it would double the reported total bandwidth.
   # - name: WAN1-VoIP-Test
   #   source_ip: 192.168.1.100
   #   dscp: 46
   #   enabled: true
+  #   counts_to_total: false
 
 # Scheduler Configuration
 # -----------------------
@@ -124,3 +133,55 @@ speedtest:
   download_size: auto
   upload_size: auto
 
+# Discord Integration
+# -------------------
+# After a test run, FlowGauge can rename a Discord channel to the total
+# bandwidth and ping of all connections with counts_to_total: true, for example:
+#
+#   📶: ↓ 370 MBit/s | ↑ 100 MBit/s | 🏓 12 ms
+#
+# Bandwidth is summed over all counting connections; latency is the WORST
+# (highest) value of those connections, because latency does not add up.
+#
+# Setup:
+#   1. https://discord.com/developers/applications -> New Application -> Bot
+#   2. Copy the bot token (Reset Token if it was never shown)
+#   3. Invite the bot to your server with the "Manage Channels" permission
+#   4. Enable Discord's developer mode, right-click the channel -> Copy Channel ID
+#
+# IMPORTANT: use a VOICE channel or a CATEGORY. Text channels normalize their
+# name (lowercase, spaces turned into dashes), which mangles the arrows and
+# spacing. Voice channels and categories keep the name exactly as set.
+#
+# NOTE: Discord allows only 2 channel renames per 10 minutes per channel.
+# That is plenty for scheduled runs, but repeated manual `flowgauge test`
+# runs will be rate limited (the test itself still succeeds).
+discord:
+  # Enable/disable the channel name update
+  enabled: false
+
+  # Bot token - treat this file as a secret (chmod 600) when this is set
+  bot_token: ""
+
+  # Numeric ID of the channel to rename
+  channel_id: ""
+
+  # Channel name template. Placeholders:
+  #   {download}       total download, rounded   -> 370
+  #   {upload}         total upload, rounded     -> 100
+  #   {download_mbps}  total download, 1 decimal -> 369.8
+  #   {upload_mbps}    total upload, 1 decimal   -> 100.2
+  #   {download_gbps}  total download in Gbit/s  -> 0.37
+  #   {upload_gbps}    total upload in Gbit/s    -> 0.10
+  #   {ping}           worst latency, rounded    -> 12
+  #   {ping_ms}        worst latency, 1 decimal  -> 11.8
+  #   {connections}    number of connections included
+  #   {time}           time of the update        -> 03:14
+  #   {date}           date of the update        -> 2026-09-21
+  # {latency} and {latency_ms} are aliases for {ping} and {ping_ms}.
+  # Other emoji that work well for the ping: ⏱️ 📡 ⚡
+  # Maximum 100 characters after rendering.
+  name_template: "📶: ↓ {download} MBit/s | ↑ {upload} MBit/s | 🏓 {ping} ms"
+
+  # Timeout for a single Discord API call
+  timeout: 15s

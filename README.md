@@ -13,6 +13,7 @@
 - **Web Dashboard** - Modern dashboard with real-time updates and charts
 - **REST API** - JSON API for Grafana and other tools
 - **Prometheus Metrics** - Native Prometheus support for monitoring
+- **Discord Integration** - Shows the total bandwidth in a Discord channel name
 - **Flexible Storage** - SQLite (default) or PostgreSQL
 
 ## 🚀 Quick Start
@@ -66,16 +67,69 @@ connections:
     source_ip: 192.168.1.100
     dscp: 0
     enabled: true
+    counts_to_total: true   # counts towards the total bandwidth (default)
   
   - name: WAN2-Vodafone
     source_ip: 192.168.2.100
     dscp: 46  # Expedited Forwarding
     enabled: true
+    counts_to_total: false  # measured only, not added to the total
 
 scheduler:
   enabled: true
   schedule: "*/30 * * * *"  # Every 30 minutes
 ```
+
+See [`configs/flowgauge.example.yaml`](configs/flowgauge.example.yaml) for the fully
+commented configuration.
+
+## 📶 Discord Integration
+
+After every test run FlowGauge can rename a Discord channel to the measured total
+bandwidth and ping, so the current line quality is visible in the channel list:
+
+```
+📶: ↓ 370 MBit/s | ↑ 100 MBit/s | 🏓 12 ms
+```
+
+```yaml
+discord:
+  enabled: true
+  bot_token: "your-bot-token"
+  channel_id: "123456789012345678"
+  name_template: "📶: ↓ {download} MBit/s | ↑ {upload} MBit/s | 🏓 {ping} ms"
+  timeout: 15s
+```
+
+Download and upload are the **sum** of all enabled connections with
+`counts_to_total: true` (the default); the ping is the **worst (highest)** latency
+of those connections, because latency does not add up. Set `counts_to_total: false`
+on connections that measure the same physical line again — for example a second
+test with a different DSCP marking — so they do not distort the overview. Failed
+tests are left out; if no counting connection succeeded, the channel keeps its
+previous name.
+
+**Setup:**
+
+1. Create an application at [discord.com/developers](https://discord.com/developers/applications),
+   add a **Bot** and copy its token
+2. Invite the bot to your server with the **Manage Channels** permission
+3. Enable Discord's developer mode and copy the channel ID
+   (right-click the channel → *Copy Channel ID*)
+
+**Use a voice channel or a category.** Text channels normalize their name
+(lowercase, spaces turned into dashes), which mangles the arrows and spacing.
+
+Available template placeholders: `{download}`, `{upload}`, `{download_mbps}`,
+`{upload_mbps}`, `{download_gbps}`, `{upload_gbps}`, `{ping}`, `{ping_ms}`,
+`{connections}`, `{time}`, `{date}` (`{latency}` and `{latency_ms}` are aliases
+for `{ping}` and `{ping_ms}`). The rendered name must not exceed 100 characters.
+Other emoji that read well for the ping: ⏱️, 📡, ⚡.
+
+> **Note:** Discord allows only two channel renames per 10 minutes per channel.
+> Scheduled runs are unaffected, but repeated manual `flowgauge test` runs will be
+> rate limited. Use `flowgauge test --no-discord` to skip the update. A failed
+> Discord update never fails the speedtest itself — results are still stored.
 
 ## 🎨 Web Dashboard
 

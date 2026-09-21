@@ -7,27 +7,31 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/lan-dot-party/flowgauge/internal/api"
+	"github.com/lan-dot-party/flowgauge/internal/discord"
 	"github.com/lan-dot-party/flowgauge/internal/speedtest"
 	"github.com/lan-dot-party/flowgauge/internal/storage"
 )
 
 // SpeedtestJob runs speedtests on a schedule.
 type SpeedtestJob struct {
-	runner  *speedtest.MultiWANRunner
-	storage storage.Storage
-	logger  *zap.Logger
+	runner   *speedtest.MultiWANRunner
+	storage  storage.Storage
+	notifier *discord.Notifier
+	logger   *zap.Logger
 }
 
 // NewSpeedtestJob creates a new speedtest job.
-func NewSpeedtestJob(runner *speedtest.MultiWANRunner, store storage.Storage, logger *zap.Logger) *SpeedtestJob {
+// notifier may be nil, in which case no Discord update is sent.
+func NewSpeedtestJob(runner *speedtest.MultiWANRunner, store storage.Storage, notifier *discord.Notifier, logger *zap.Logger) *SpeedtestJob {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
 	return &SpeedtestJob{
-		runner:  runner,
-		storage: store,
-		logger:  logger,
+		runner:   runner,
+		storage:  store,
+		notifier: notifier,
+		logger:   logger,
 	}
 }
 
@@ -63,10 +67,10 @@ func (j *SpeedtestJob) RunWithContext(ctx context.Context) error {
 	for _, result := range results {
 		// Update Prometheus metrics
 		api.UpdateMetricsForResult(&result)
-		
+
 		// Save to database
 		dbResult := storage.FromSpeedtestResult(&result)
-		
+
 		if err := j.storage.SaveResult(ctx, dbResult); err != nil {
 			j.logger.Error("Failed to save speedtest result",
 				zap.String("connection", result.ConnectionName),
@@ -93,6 +97,12 @@ func (j *SpeedtestJob) RunWithContext(ctx context.Context) error {
 		}
 	}
 
+	// Report the total bandwidth to Discord. A failure here must not fail the
+	// run: the results are already measured and stored.
+	if _, err := j.notifier.UpdateFromResults(ctx, results); err != nil {
+		j.logger.Warn("Failed to update Discord channel name", zap.Error(err))
+	}
+
 	duration := time.Since(startTime)
 	j.logger.Info("Scheduled speedtest completed",
 		zap.Int("total", len(results)),
@@ -103,4 +113,3 @@ func (j *SpeedtestJob) RunWithContext(ctx context.Context) error {
 
 	return nil
 }
-

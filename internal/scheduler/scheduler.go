@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/lan-dot-party/flowgauge/internal/config"
+	"github.com/lan-dot-party/flowgauge/internal/discord"
 	"github.com/lan-dot-party/flowgauge/internal/speedtest"
 	"github.com/lan-dot-party/flowgauge/internal/storage"
 )
@@ -20,6 +21,7 @@ type Scheduler struct {
 	config   *config.SchedulerConfig
 	runner   *speedtest.MultiWANRunner
 	storage  storage.Storage
+	notifier *discord.Notifier
 	logger   *zap.Logger
 	running  bool
 	mu       sync.Mutex
@@ -27,7 +29,8 @@ type Scheduler struct {
 }
 
 // NewScheduler creates a new scheduler instance.
-func NewScheduler(cfg *config.SchedulerConfig, runner *speedtest.MultiWANRunner, store storage.Storage, logger *zap.Logger) (*Scheduler, error) {
+// notifier may be nil, in which case no Discord update is sent after a run.
+func NewScheduler(cfg *config.SchedulerConfig, runner *speedtest.MultiWANRunner, store storage.Storage, notifier *discord.Notifier, logger *zap.Logger) (*Scheduler, error) {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -53,11 +56,12 @@ func NewScheduler(cfg *config.SchedulerConfig, runner *speedtest.MultiWANRunner,
 	)
 
 	return &Scheduler{
-		cron:    c,
-		config:  cfg,
-		runner:  runner,
-		storage: store,
-		logger:  logger,
+		cron:     c,
+		config:   cfg,
+		runner:   runner,
+		storage:  store,
+		notifier: notifier,
+		logger:   logger,
 	}, nil
 }
 
@@ -76,7 +80,7 @@ func (s *Scheduler) Start() error {
 	}
 
 	// Create the speedtest job
-	job := NewSpeedtestJob(s.runner, s.storage, s.logger)
+	job := NewSpeedtestJob(s.runner, s.storage, s.notifier, s.logger)
 
 	// Add the job to cron
 	entryID, err := s.cron.AddFunc(s.config.Schedule, job.Run)
@@ -198,7 +202,6 @@ func (l *cronLogger) Printf(format string, args ...interface{}) {
 
 // RunOnce runs the speedtest job once immediately (useful for testing).
 func (s *Scheduler) RunOnce(ctx context.Context) error {
-	job := NewSpeedtestJob(s.runner, s.storage, s.logger)
+	job := NewSpeedtestJob(s.runner, s.storage, s.notifier, s.logger)
 	return job.RunWithContext(ctx)
 }
-

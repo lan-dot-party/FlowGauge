@@ -11,6 +11,7 @@ type Config struct {
 	Connections []ConnectionConfig `yaml:"connections"`
 	Scheduler   SchedulerConfig    `yaml:"scheduler"`
 	Speedtest   SpeedtestConfig    `yaml:"speedtest"`
+	Discord     DiscordConfig      `yaml:"discord"`
 }
 
 // GeneralConfig contains general application settings.
@@ -71,6 +72,17 @@ type ConnectionConfig struct {
 	DSCP int `yaml:"dscp"`
 	// Enabled controls whether this connection is tested
 	Enabled bool `yaml:"enabled"`
+	// CountsToTotal controls whether this connection's bandwidth is added to the
+	// aggregated total (e.g. the one reported to Discord).
+	// It is a pointer so an unset value can be distinguished from an explicit
+	// "false"; unset means the connection counts. Use IncludeInTotal() to read it.
+	CountsToTotal *bool `yaml:"counts_to_total,omitempty"`
+}
+
+// IncludeInTotal reports whether this connection contributes to the aggregated
+// total bandwidth. Connections that do not set counts_to_total are included.
+func (c ConnectionConfig) IncludeInTotal() bool {
+	return c.CountsToTotal == nil || *c.CountsToTotal
 }
 
 // SchedulerConfig defines the automatic test scheduling.
@@ -79,6 +91,36 @@ type SchedulerConfig struct {
 	Enabled bool `yaml:"enabled"`
 	// Schedule is a cron expression (e.g., "*/30 * * * *" for every 30 minutes)
 	Schedule string `yaml:"schedule"`
+}
+
+// DiscordConfig contains the settings for renaming a Discord channel with the
+// total bandwidth after a speedtest run.
+//
+// Renaming a channel requires a bot token (a webhook cannot do it); the bot
+// needs the MANAGE_CHANNELS permission on the target channel.
+type DiscordConfig struct {
+	// Enabled controls whether the channel name is updated after a test run
+	Enabled bool `yaml:"enabled"`
+	// BotToken is the Discord bot token (keep this file readable only by the service user)
+	BotToken string `yaml:"bot_token"`
+	// ChannelID is the numeric ID of the channel to rename.
+	// Use a voice channel or a category: text channels normalize their name
+	// (lowercase, spaces turned into dashes).
+	ChannelID string `yaml:"channel_id"`
+	// NameTemplate is the channel name template, see discord.RenderName for placeholders
+	NameTemplate string `yaml:"name_template"`
+	// Timeout is the maximum duration for a single Discord API call
+	Timeout time.Duration `yaml:"timeout"`
+}
+
+// MarshalYAML redacts the bot token so `flowgauge config show` never prints it.
+func (d DiscordConfig) MarshalYAML() (interface{}, error) {
+	type plain DiscordConfig // avoid recursing into this method
+	redacted := plain(d)
+	if redacted.BotToken != "" {
+		redacted.BotToken = "***"
+	}
+	return redacted, nil
 }
 
 // SpeedtestConfig contains speedtest-specific settings.
@@ -142,4 +184,3 @@ var DSCPNames = map[int]string{
 	DSCPCS6:        "CS6 (Network Control)",
 	DSCPCS7:        "CS7",
 }
-

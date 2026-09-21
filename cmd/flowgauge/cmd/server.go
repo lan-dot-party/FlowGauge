@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/lan-dot-party/flowgauge/internal/api"
+	"github.com/lan-dot-party/flowgauge/internal/discord"
 	"github.com/lan-dot-party/flowgauge/internal/logger"
 	"github.com/lan-dot-party/flowgauge/internal/scheduler"
 	"github.com/lan-dot-party/flowgauge/internal/speedtest"
@@ -82,11 +83,14 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Initialize Prometheus metrics from stored results
 	initPrometheusMetrics(context.Background(), store)
 
+	// Create Discord notifier (nil when the integration is disabled)
+	notifier := discord.NewNotifier(cfg, logger.Log)
+
 	// Create scheduler if enabled
 	var sched *scheduler.Scheduler
 	schedulerEnabled := cfg.Scheduler.Enabled && !noScheduler && runner != nil
 	if schedulerEnabled {
-		sched, err = scheduler.NewScheduler(&cfg.Scheduler, runner, store, logger.Log)
+		sched, err = scheduler.NewScheduler(&cfg.Scheduler, runner, store, notifier, logger.Log)
 		if err != nil {
 			logger.Warn("Failed to create scheduler", zap.Error(err))
 			schedulerEnabled = false
@@ -145,6 +149,12 @@ func runServer(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		fmt.Printf("  Scheduler:   disabled\n")
+	}
+
+	if notifier.Enabled() {
+		fmt.Printf("  Discord:     ✅ channel %s\n", notifier.ChannelID())
+	} else {
+		fmt.Printf("  Discord:     disabled\n")
 	}
 
 	fmt.Println()

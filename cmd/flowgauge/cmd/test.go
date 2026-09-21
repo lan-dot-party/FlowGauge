@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	"github.com/lan-dot-party/flowgauge/internal/discord"
 	"github.com/lan-dot-party/flowgauge/internal/logger"
 	"github.com/lan-dot-party/flowgauge/internal/speedtest"
 	"github.com/lan-dot-party/flowgauge/internal/storage"
@@ -20,6 +21,7 @@ var (
 	testOnce       bool
 	testJSON       bool
 	testNoSave     bool
+	testNoDiscord  bool
 )
 
 // testCmd represents the test command
@@ -39,7 +41,10 @@ Examples:
   flowgauge test --json
   
   # Run test without saving to database
-  flowgauge test --no-save`,
+  flowgauge test --no-save
+
+  # Run test without updating the Discord channel name
+  flowgauge test --no-discord`,
 	RunE: runTest,
 }
 
@@ -120,17 +125,30 @@ func runTest(cmd *cobra.Command, args []string) error {
 		for _, result := range results {
 			dbResult := storage.FromSpeedtestResult(&result)
 			if err := store.SaveResult(ctx, dbResult); err != nil {
-				logger.Warn("Failed to save result", 
+				logger.Warn("Failed to save result",
 					zap.String("connection", result.ConnectionName),
 					zap.Error(err),
 				)
 			} else {
-				logger.Debug("Result saved", 
+				logger.Debug("Result saved",
 					zap.String("connection", result.ConnectionName),
 					zap.Int64("id", dbResult.ID),
 				)
 			}
 		}
+	}
+
+	// Update the Discord channel name with the total bandwidth.
+	// Only a full run may do this: with --connection the results are a subset
+	// and the total would be wrong.
+	var discordName string
+	if !testNoDiscord && testConnection == "" {
+		notifier := discord.NewNotifier(cfg, logger.Log)
+		name, err := notifier.UpdateFromResults(ctx, results)
+		if err != nil {
+			logger.Warn("Failed to update Discord channel name", zap.Error(err))
+		}
+		discordName = name
 	}
 
 	// Output results
@@ -150,9 +168,13 @@ func runTest(cmd *cobra.Command, args []string) error {
 				rs.AverageLatency(),
 			)
 		}
-		
+
 		if store != nil {
 			fmt.Printf("\n✅ Results saved to database\n")
+		}
+
+		if discordName != "" {
+			fmt.Printf("📶 Discord channel updated: %q\n", discordName)
 		}
 	}
 
@@ -170,4 +192,6 @@ func init() {
 		"output results as JSON")
 	testCmd.Flags().BoolVar(&testNoSave, "no-save", false,
 		"don't save results to database")
+	testCmd.Flags().BoolVar(&testNoDiscord, "no-discord", false,
+		"don't update the Discord channel name")
 }
