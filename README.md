@@ -20,8 +20,26 @@
 
 ### Installation
 
+#### From the lan.party package repository (recommended)
+
+Set up the repository once, then install and update the package with your system's package manager.
+Instructions for Debian/Ubuntu, Fedora/RHEL/Rocky, Arch Linux and Alpine: **https://repo.lan.party**
+
+```sh
+curl -fsSL https://repo.lan.party/setup.sh | sudo sh   # or follow the manual steps on repo.lan.party
+
+sudo apt install flowgauge      # Debian / Ubuntu
+sudo dnf install flowgauge      # Fedora / RHEL / Rocky
+sudo pacman -S flowgauge        # Arch Linux
+sudo apk add flowgauge          # Alpine
+```
+
+New releases then arrive with your normal system updates (`apt upgrade`, `dnf upgrade`, `pacman -Syu`, `apk upgrade`).
+
+#### Other installation methods
+
 ```bash
-# Via Go Install (recommended)
+# Via Go Install
 go install github.com/lan-dot-party/flowgauge/cmd/flowgauge@latest
 
 # Or: Download binary
