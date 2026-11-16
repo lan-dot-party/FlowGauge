@@ -183,6 +183,56 @@ docker run -d \
   ghcr.io/lan-dot-party/flowgauge:latest
 ```
 
+### Docker Compose
+
+Two ready-to-use examples are included. They differ only in where the data
+(SQLite database `results.db`) is stored:
+
+| File | Data | When to use |
+|------|------|-------------|
+| [`compose.yaml`](compose.yaml) | named volume `flowgauge-data` | Simplest; Docker manages permissions |
+| [`compose.bind.yaml`](compose.bind.yaml) | local directory `./data` | Easy access and backup; directory must belong to UID `100` / GID `101` (the container user) |
+
+**1. Create the configuration.** The image only ships an example, so create
+`config.yaml` next to the compose file and adjust it:
+
+```bash
+docker run --rm --entrypoint cat ghcr.io/lan-dot-party/flowgauge:latest \
+  /etc/flowgauge/config.yaml.example > config.yaml
+```
+
+Set `webserver.listen: 0.0.0.0:8080` - the default `127.0.0.1:8080` is not
+reachable through Docker's port mapping. The compose files publish the port on
+`127.0.0.1` only (for a reverse proxy on the same host); change it to
+`"8080:8080"` to expose it directly.
+
+**2. Start, logs, update** (for the local path variant add `-f compose.bind.yaml`
+and first run `mkdir -p data && sudo chown 100:101 data`):
+
+```bash
+docker compose up -d
+docker compose logs -f
+docker compose pull && docker compose up -d   # update
+```
+
+**Backup.** FlowGauge has no built-in backup command. Stop the container first
+so the SQLite database is consistent:
+
+```bash
+docker compose stop
+# named volume
+docker run --rm -v flowgauge-data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/flowgauge-data.tgz -C /data .
+# local path variant: back up ./data and config.yaml
+tar czf flowgauge-backup.tgz data config.yaml
+docker compose start
+```
+
+**Capabilities.** `NET_ADMIN` and `NET_RAW` are only needed for DSCP marking.
+For Multi-WAN setups with `source_ip`, the address must exist inside the
+container; use `network_mode: host` (see the comment in the compose files).
+Pin a version tag instead of `latest` for production.
+
 ## 🔧 System Requirements
 
 - **Go 1.22+** (for development/build)

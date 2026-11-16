@@ -1,0 +1,83 @@
+# FlowGauge - Docker Compose example (local path variant)
+#
+# Data (SQLite database results.db) is stored in ./data next to this file.
+# The container runs as UID 100 / GID 101, so that directory must belong to them:
+#
+#   mkdir -p data && sudo chown 100:101 data
+#
+# Usage:
+#   1. Create the config (the image ships only an example):
+#        docker run --rm --entrypoint cat ghcr.io/lan-dot-party/flowgauge:latest \
+#          /etc/flowgauge/config.yaml.example > config.yaml
+#      Adjust it, and set  webserver.listen: 0.0.0.0:8080  (the default
+#      127.0.0.1:8080 is not reachable through Docker's port mapping).
+#   2. Start:    docker compose -f compose.bind.yaml up -d
+#   3. Logs:     docker compose -f compose.bind.yaml logs -f
+#   4. Update:   docker compose -f compose.bind.yaml pull && docker compose -f compose.bind.yaml up -d
+#
+# Variant with a named Docker volume instead: compose.yaml
+
+services:
+  flowgauge:
+    # Pin a version tag (e.g. :1.2.3) for production instead of :latest.
+    image: ghcr.io/lan-dot-party/flowgauge:latest
+    container_name: flowgauge
+    restart: unless-stopped
+
+    # Required for DSCP marking.
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+    # Multi-WAN: connections with a source_ip need that address to exist in the
+    # container's network namespace. With the default bridge network the
+    # container only has its own Docker address, so for such setups use
+    #   network_mode: host
+    # instead of "ports" (then webserver.listen decides the port).
+    ports:
+      # Behind a reverse proxy on the same host. Use "8080:8080" to expose it
+      # on all interfaces directly.
+      - "127.0.0.1:8080:8080"
+
+    environment:
+      - TZ=Europe/Berlin
+
+    volumes:
+      # Configuration (create config.yaml first, see above)
+      - ./config.yaml:/etc/flowgauge/config.yaml:ro
+      # Data persistence
+      - ./data:/var/lib/flowgauge
+
+# Optional: Add Prometheus and Grafana for monitoring
+# Uncomment the following section to enable
+
+#  prometheus:
+#    image: prom/prometheus:latest
+#    container_name: prometheus
+#    restart: unless-stopped
+#    ports:
+#      - "9090:9090"
+#    volumes:
+#      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+#      - prometheus-data:/prometheus
+#    command:
+#      - '--config.file=/etc/prometheus/prometheus.yml'
+#      - '--storage.tsdb.path=/prometheus'
+#
+#  grafana:
+#    image: grafana/grafana:latest
+#    container_name: grafana
+#    restart: unless-stopped
+#    ports:
+#      - "3000:3000"
+#    volumes:
+#      - grafana-data:/var/lib/grafana
+#    environment:
+#      - GF_SECURITY_ADMIN_PASSWORD=admin
+#    depends_on:
+#      - prometheus
+#
+#volumes:
+#  prometheus-data:
+#  grafana-data:
+

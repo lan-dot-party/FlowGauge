@@ -1,0 +1,78 @@
+name: Compose examples
+
+on:
+  pull_request:
+    paths:
+      - compose.yaml
+      - compose.bind.yaml
+      - configs/flowgauge.example.yaml
+      - .github/workflows/compose.yml
+  push:
+    branches: [main]
+    paths:
+      - compose.yaml
+      - compose.bind.yaml
+      - configs/flowgauge.example.yaml
+      - .github/workflows/compose.yml
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    name: ${{ matrix.file }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        file: [compose.yaml, compose.bind.yaml]
+    env:
+      FILE: ${{ matrix.file }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Prepare config
+        # The example config listens on 127.0.0.1, which Docker's port mapping
+        # cannot reach; bind to all interfaces inside the container.
+        run: |
+          cp configs/flowgauge.example.yaml config.yaml
+          sed -i 's|listen: 127.0.0.1:8080|listen: 0.0.0.0:8080|' config.yaml
+          grep -q 'listen: 0.0.0.0:8080' config.yaml
+
+      - name: Prepare data directory (bind variant)
+        if: matrix.file == 'compose.bind.yaml'
+        run: |
+          mkdir -p data
+          sudo chown 100:101 data
+
+      - name: Start stack
+        run: docker compose -f "$FILE" up -d
+
+      - name: Wait for healthy container
+        run: |
+          for i in $(seq 1 60); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' flowgauge)
+            echo "health: $status"
+            [ "$status" = "healthy" ] && exit 0
+            sleep 2
+          done
+          echo "container did not become healthy within 120 s" >&2
+          exit 1
+
+      - name: Check health endpoint
+        run: curl -fsS http://127.0.0.1:8080/health
+
+      - name: Check data directory (bind variant)
+        if: matrix.file == 'compose.bind.yaml'
+        run: |
+          ls -la data
+          test -s data/results.db
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose -f "$FILE" logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f "$FILE" down -v
