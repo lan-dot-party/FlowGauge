@@ -68,6 +68,7 @@ nfpms:
     formats:
       - deb
       - rpm
+      - archlinux
       - apk
     bindir: /usr/bin
     contents:
@@ -89,6 +90,18 @@ nfpms:
       rpm:
         dependencies:
           - ca-certificates
+      archlinux:
+        dependencies:
+          - ca-certificates
+        # Arch: /lib is a symlink owned by the filesystem package -> ship under /usr/lib
+        contents:
+          - src: configs/flowgauge.example.yaml
+            dst: /etc/flowgauge/config.yaml.example
+            type: config
+          - src: scripts/systemd/flowgauge.service
+            dst: /usr/lib/systemd/system/flowgauge.service
+    archlinux:
+      packager: lan-dot-party
 
 checksum:
   name_template: 'checksums.txt'

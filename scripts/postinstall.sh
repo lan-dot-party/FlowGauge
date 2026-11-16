@@ -1,11 +1,19 @@
-#!/bin/bash
-# FlowGauge post-installation script
-
+#!/bin/sh
+# FlowGauge post-installation script (deb, rpm, archlinux, apk).
+# Must also work without systemd (containers, chroots, Alpine/OpenRC) and
+# without bash.
 set -e
 
 # Create flowgauge user if it doesn't exist
 if ! id -u flowgauge >/dev/null 2>&1; then
-    useradd --system --no-create-home --shell /usr/sbin/nologin flowgauge
+    if command -v useradd >/dev/null 2>&1; then
+        useradd --system --no-create-home --shell /usr/sbin/nologin flowgauge 2>/dev/null ||
+            useradd --system --no-create-home --shell /sbin/nologin flowgauge
+    else
+        # Alpine / BusyBox
+        addgroup -S flowgauge 2>/dev/null || true
+        adduser -S -D -H -s /sbin/nologin -G flowgauge flowgauge
+    fi
     echo "Created flowgauge user"
 fi
 
@@ -31,13 +39,13 @@ if [ ! -f /etc/flowgauge/config.yaml ]; then
 fi
 
 # Set capabilities for DSCP marking (optional, only if binary exists)
-if [ -f /usr/bin/flowgauge ]; then
+if [ -f /usr/bin/flowgauge ] && command -v setcap >/dev/null 2>&1; then
     setcap 'cap_net_admin,cap_net_raw+ep' /usr/bin/flowgauge 2>/dev/null || true
 fi
 
-# Reload systemd
-if command -v systemctl >/dev/null 2>&1; then
-    systemctl daemon-reload
+# Reload systemd only when it is actually running (not in containers/chroots)
+if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload || true
     echo ""
     echo "FlowGauge installed successfully!"
     echo ""
@@ -50,5 +58,3 @@ if command -v systemctl >/dev/null 2>&1; then
 fi
 
 exit 0
-
-

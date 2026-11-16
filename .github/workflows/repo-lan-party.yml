@@ -1,0 +1,41 @@
+# Keeps https://repo.lan.party in sync with the GitHub releases of this project.
+# - after the release workflow finished successfully -> new packages are picked up
+# - when a release is deleted                          -> its packages are removed
+# Needs the secret REPO_DISPATCH_TOKEN (fine-grained PAT of lan-dot-party with
+# "Contents: read & write" on lan-dot-party/repo). Without it, repo.lan.party
+# still catches up through its 6-hourly schedule.
+
+name: repo.lan.party
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+  release:
+    types: [deleted]
+
+permissions: {}
+
+jobs:
+  notify:
+    # only runs that were started by a release (the workflow may also run on PRs)
+    if: >-
+      github.event_name == 'release' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'release')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger repo.lan.party update
+        env:
+          GH_TOKEN: ${{ secrets.REPO_DISPATCH_TOKEN }}
+          EVENT_TYPE: ${{ github.event_name == 'release' && 'tool-deleted' || 'tool-released' }}
+          TAG: ${{ github.event.release.tag_name || github.event.workflow_run.head_branch }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::REPO_DISPATCH_TOKEN not set - repo.lan.party picks this up within 6 hours"
+            exit 0
+          fi
+          gh api repos/lan-dot-party/repo/dispatches \
+            -f event_type="$EVENT_TYPE" \
+            -f "client_payload[repo]=$GITHUB_REPOSITORY" \
+            -f "client_payload[tag]=$TAG"
+          echo "repo.lan.party: $EVENT_TYPE $GITHUB_REPOSITORY $TAG" >> "$GITHUB_STEP_SUMMARY"
