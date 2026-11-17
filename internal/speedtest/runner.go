@@ -3,6 +3,7 @@ package speedtest
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/showwin/speedtest-go/speedtest"
@@ -154,7 +155,14 @@ func (r *Runner) Run(ctx context.Context, conn WANConnection) (*Result, error) {
 		r.logger.Warn("Download test failed", zap.Error(err))
 	}
 	// Use ByteRate's Mbps() method for correct conversion
-	result.DownloadMbps = server.DLSpeed.Mbps()
+	// speedtest-go reports -1 ("N/A") when every request failed; do not turn
+	// that sentinel into a negative speed.
+	var failed []string
+	if server.DLSpeed < 0 {
+		failed = append(failed, "download")
+	} else {
+		result.DownloadMbps = server.DLSpeed.Mbps()
+	}
 	r.logger.Debug("Download result",
 		zap.Float64("raw_dlspeed", float64(server.DLSpeed)),
 		zap.Float64("mbps", result.DownloadMbps),
@@ -171,7 +179,14 @@ func (r *Runner) Run(ctx context.Context, conn WANConnection) (*Result, error) {
 		r.logger.Warn("Upload test failed", zap.Error(err))
 	}
 	// Use ByteRate's Mbps() method for correct conversion
-	result.UploadMbps = server.ULSpeed.Mbps()
+	if server.ULSpeed < 0 {
+		failed = append(failed, "upload")
+	} else {
+		result.UploadMbps = server.ULSpeed.Mbps()
+	}
+	if len(failed) > 0 {
+		result.Error = strings.Join(failed, " and ") + " test failed: no data transferred"
+	}
 
 	if err := ctx.Err(); err != nil {
 		result.Error = fmt.Sprintf("speedtest aborted: %v", err)
