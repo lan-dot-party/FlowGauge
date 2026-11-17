@@ -247,6 +247,14 @@ Pin a version tag instead of `latest` for production.
 - [API Documentation](docs/api.md) - REST API details & examples
 - [Grafana Integration](grafana/README.md) - Dashboard setup
 
+## 🔗 Related projects
+
+FlowGauge is part of the lan-dot-party tool suite with
+[ERS-Proxy](https://github.com/lan-dot-party/ERS-Proxy),
+[LANLeecher](https://github.com/lan-dot-party/LANLeecher),
+[LANPilot](https://github.com/lan-dot-party/LANPilot) and
+[LANventory](https://github.com/lan-dot-party/LANventory).
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please open an issue or pull request.
