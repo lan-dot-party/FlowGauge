@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/lan-dot-party/flowgauge/internal/speedtest"
 	"github.com/lan-dot-party/flowgauge/internal/storage"
 )
 
@@ -200,11 +201,9 @@ func printStats(stats *storage.Stats) {
 	}
 }
 
+// truncate strips control characters and shortens s to maxLen runes.
 func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
+	return speedtest.TruncateRunes(s, maxLen)
 }
 
 func init() {
