@@ -159,7 +159,7 @@ func (s *Server) getConnectionChartData(ctx context.Context, connectionName stri
 // getDashboardData collects all data needed for the dashboard.
 func (s *Server) getDashboardData(ctx context.Context, chartDuration time.Duration) DashboardData {
 	data := DashboardData{
-		Version:    version.GetShortVersion(),
+		Version:    version.GetDisplayVersion(),
 		LastUpdate: time.Now().Local().Format("15:04:05"),
 	}
 	
@@ -661,7 +661,7 @@ const dashboardTemplate = `<!DOCTYPE html>
             <div class="logo">
                 <span class="logo-icon">🌊</span>
                 <h1>FlowGauge</h1>
-                <span class="version">v{{.Version}}</span>
+                <span class="version">{{.Version}}</span>
             </div>
             <div class="header-info">
                 <div class="update-indicator">
@@ -717,7 +717,7 @@ const dashboardTemplate = `<!DOCTYPE html>
         </div>
         
         <footer>
-            <p>FlowGauge v{{.Version}} • 
+            <p>FlowGauge {{.Version}} • 
             <a href="/api/">API Documentation</a> • 
             <a href="https://github.com/lan-dot-party/flowgauge" target="_blank">GitHub</a></p>
         </footer>

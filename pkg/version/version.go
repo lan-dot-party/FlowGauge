@@ -1,7 +1,11 @@
 // Package version provides build version information.
 package version
 
-import "fmt"
+import (
+	"fmt"
+	"regexp"
+	"strings"
+)
 
 // Build-time variables - set via ldflags
 var (
@@ -23,3 +27,16 @@ func GetShortVersion() string {
 	return Version
 }
 
+// semverPrefix matches "1.2" at the start, so commit hashes such as
+// "7c5bc01" are not mistaken for versions.
+var semverPrefix = regexp.MustCompile(`^[0-9]+\.[0-9]+`)
+
+// GetDisplayVersion returns the version for display with exactly one
+// leading "v" for numeric versions ("1.1.0" and "v1.1.0" both become
+// "v1.1.0"); other values such as "dev" are returned unchanged.
+func GetDisplayVersion() string {
+	if v := strings.TrimPrefix(Version, "v"); semverPrefix.MatchString(v) {
+		return "v" + v
+	}
+	return Version
+}

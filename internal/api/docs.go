@@ -265,7 +265,7 @@ func (s *Server) handleAPIDocs(w http.ResponseWriter, r *http.Request) {
         <div class="container">
             <span class="logo">🌊</span>
             <h1>FlowGauge API</h1>
-            <span class="version">v` + version.GetShortVersion() + `</span>
+            <span class="version">` + version.GetDisplayVersion() + `</span>
         </div>
     </header>
     
@@ -451,7 +451,7 @@ func (s *Server) handleAPIDocs(w http.ResponseWriter, r *http.Request) {
     </div>
     
     <footer>
-        <p>FlowGauge API v` + version.GetShortVersion() + ` • 
+        <p>FlowGauge API ` + version.GetDisplayVersion() + ` • 
         <a href="https://github.com/lan-dot-party/flowgauge" target="_blank">GitHub</a></p>
     </footer>
     
