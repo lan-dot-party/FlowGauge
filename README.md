@@ -1,7 +1,7 @@
 # FlowGauge
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)](https://golang.org/)
 
 > 🌐 A modular bandwidth testing tool with Multi-WAN support, DSCP flag configuration, and Grafana-compatible API.
 
@@ -176,7 +176,6 @@ Accessible at `http://localhost:8080/` when the server is running.
 ```bash
 docker run -d \
   --name flowgauge \
-  --cap-add NET_ADMIN \
   -v ./config.yaml:/etc/flowgauge/config.yaml:ro \
   -v flowgauge-data:/var/lib/flowgauge \
   -p 8080:8080 \
@@ -205,6 +204,9 @@ Set `webserver.listen: 0.0.0.0:8080` - the default `127.0.0.1:8080` is not
 reachable through Docker's port mapping. The compose files publish the port on
 `127.0.0.1` only (for a reverse proxy on the same host); change it to
 `"8080:8080"` to expose it directly.
+To log real client IPs behind that proxy, add the address the proxy connects
+from (inside the container usually the Docker network gateway, e.g.
+`172.16.0.0/12`) to `webserver.trusted_proxies`, see [docs/api.md](docs/api.md#client-ip-behind-a-reverse-proxy).
 
 **2. Start, logs, update** (for the local path variant add `-f compose.bind.yaml`
 and first run `mkdir -p data && sudo chown 100:101 data`):
@@ -228,21 +230,28 @@ tar czf flowgauge-backup.tgz data config.yaml
 docker compose start
 ```
 
-**Capabilities.** `NET_ADMIN` and `NET_RAW` are only needed for DSCP marking.
+**Capabilities.** No extra Linux capabilities are needed (DSCP marking works unprivileged).
 For Multi-WAN setups with `source_ip`, the address must exist inside the
 container; use `network_mode: host` (see the comment in the compose files).
 Pin a version tag instead of `latest` for production.
 
 ## 🔧 System Requirements
 
-- **Go 1.22+** (for development/build)
+- **Go 1.26+** (for development/build)
 - **Linux** (recommended) - Full DSCP/Source-IP support
-- **CAP_NET_ADMIN** - Permission for DSCP marking
 
 ## 📖 Documentation
 
 - [API Documentation](docs/api.md) - REST API details & examples
 - [Grafana Integration](grafana/README.md) - Dashboard setup
+
+## 🔗 Related projects
+
+FlowGauge is part of the lan-dot-party tool suite with
+[ERS-Proxy](https://github.com/lan-dot-party/ERS-Proxy),
+[LANLeecher](https://github.com/lan-dot-party/LANLeecher),
+[LANPilot](https://github.com/lan-dot-party/LANPilot) and
+[LANventory](https://github.com/lan-dot-party/LANventory).
 
 ## 🤝 Contributing
 

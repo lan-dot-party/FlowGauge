@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"html/template"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/lan-dot-party/flowgauge/internal/duration"
 	"github.com/lan-dot-party/flowgauge/internal/storage"
 	"github.com/lan-dot-party/flowgauge/pkg/version"
 )
@@ -39,8 +41,37 @@ type ChartData struct {
 	Latency  []float64 `json:"latency"`
 }
 
+//go:embed static
+var staticFiles embed.FS
+
+// staticHandler serves the embedded static assets (htmx, Chart.js, fonts)
+// under /static/ (mounted in setupRouter).
+func staticHandler() http.Handler {
+	fileServer := http.FileServer(http.FS(staticFiles))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		fileServer.ServeHTTP(w, r)
+	})
+}
+
+// contentSecurityPolicy restricts the dashboard and docs pages to same-origin
+// resources; inline scripts and styles are needed by the templates.
+const contentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; " +
+	"connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+
+// setHTMLSecurityHeaders adds CSP and related headers to HTML responses.
+func setHTMLSecurityHeaders(w http.ResponseWriter) {
+	h := w.Header()
+	h.Set("Content-Security-Policy", contentSecurityPolicy)
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Referrer-Policy", "no-referrer")
+}
+
 // handleDashboard serves the main dashboard page.
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	setHTMLSecurityHeaders(w)
 	data := s.getDashboardData(r.Context(), 2*time.Hour) // Default: 2h for mini charts
 	
 	funcMap := template.FuncMap{
@@ -58,6 +89,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 // handleDashboardPartial returns dashboard cards as HTML (for HTMX updates).
 func (s *Server) handleDashboardPartial(w http.ResponseWriter, r *http.Request) {
+	setHTMLSecurityHeaders(w)
 	data := s.getDashboardData(r.Context(), 2*time.Hour)
 	
 	funcMap := template.FuncMap{
@@ -79,14 +111,14 @@ func (s *Server) handleConnectionChartData(w http.ResponseWriter, r *http.Reques
 	
 	// Parse duration from query param (default: 24h for modal)
 	durationStr := r.URL.Query().Get("duration")
-	duration := 24 * time.Hour
+	window := 24 * time.Hour
 	if durationStr != "" {
-		if d, err := time.ParseDuration(durationStr); err == nil {
-			duration = d
+		if d, err := duration.Parse(durationStr); err == nil && d > 0 {
+			window = d
 		}
 	}
-	
-	chartData := s.getConnectionChartData(ctx, connectionName, duration)
+
+	chartData := s.getConnectionChartData(ctx, connectionName, window)
 	
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(chartData); err != nil {
@@ -128,7 +160,7 @@ func (s *Server) getConnectionChartData(ctx context.Context, connectionName stri
 // getDashboardData collects all data needed for the dashboard.
 func (s *Server) getDashboardData(ctx context.Context, chartDuration time.Duration) DashboardData {
 	data := DashboardData{
-		Version:    version.GetShortVersion(),
+		Version:    version.GetDisplayVersion(),
 		LastUpdate: time.Now().Local().Format("15:04:05"),
 	}
 	
@@ -206,11 +238,9 @@ const dashboardTemplate = `<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FlowGauge Dashboard</title>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/static/htmx-1.9.10.min.js"></script>
+    <script src="/static/chart-4.4.1.umd.js"></script>
+    <link rel="stylesheet" href="/static/fonts.css">
     <style>
         :root {
             --bg-dark: #0a0a0f;
@@ -632,7 +662,7 @@ const dashboardTemplate = `<!DOCTYPE html>
             <div class="logo">
                 <span class="logo-icon">🌊</span>
                 <h1>FlowGauge</h1>
-                <span class="version">v{{.Version}}</span>
+                <span class="version">{{.Version}}</span>
             </div>
             <div class="header-info">
                 <div class="update-indicator">
@@ -688,7 +718,7 @@ const dashboardTemplate = `<!DOCTYPE html>
         </div>
         
         <footer>
-            <p>FlowGauge v{{.Version}} • 
+            <p>FlowGauge {{.Version}} • 
             <a href="/api/">API Documentation</a> • 
             <a href="https://github.com/lan-dot-party/flowgauge" target="_blank">GitHub</a></p>
         </footer>

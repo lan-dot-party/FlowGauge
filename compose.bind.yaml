@@ -24,11 +24,6 @@ services:
     container_name: flowgauge
     restart: unless-stopped
 
-    # Required for DSCP marking.
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-
     # Multi-WAN: connections with a source_ip need that address to exist in the
     # container's network namespace. With the default bridge network the
     # container only has its own Docker address, so for such setups use
@@ -73,7 +68,8 @@ services:
 #    volumes:
 #      - grafana-data:/var/lib/grafana
 #    environment:
-#      - GF_SECURITY_ADMIN_PASSWORD=admin
+#      # Set a strong, unique password before enabling Grafana.
+#      - GF_SECURITY_ADMIN_PASSWORD=change-me
 #    depends_on:
 #      - prometheus
 #

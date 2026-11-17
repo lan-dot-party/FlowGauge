@@ -35,6 +35,24 @@ webserver:
 
 When enabled, all endpoints (except `/health`) require HTTP Basic Authentication.
 
+## Client IP behind a reverse proxy
+
+FlowGauge logs the client IP of each request (and of failed logins). By default
+it uses the TCP peer address and ignores `X-Forwarded-For`, `X-Real-IP` and
+`True-Client-IP`, so clients cannot fake it. Behind a reverse proxy, list the
+proxy addresses (CIDRs or single IPs):
+
+```yaml
+webserver:
+  trusted_proxies:
+    - 127.0.0.1
+    - ::1
+```
+
+`X-Forwarded-For` is then read only from those peers, right to left, and the
+first address outside the list is the client. The proxy must append to the
+header (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`).
+
 ---
 
 ## Response Format
@@ -95,10 +113,10 @@ Returns a list of speedtest results with optional filtering and pagination.
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
 | `connection` | string | Filter by connection name | - |
-| `since` | string | Results since (RFC3339 or duration like `24h`, `7d`) | - |
-| `until` | string | Results until (RFC3339 format) | - |
-| `limit` | integer | Maximum number of results | 100 |
-| `offset` | integer | Offset for pagination | 0 |
+| `since` | string | Results since (RFC3339 or duration like `24h`, `7d`, `1d12h`; invalid values return 400) | - |
+| `until` | string | Results until (RFC3339 format; invalid values return 400) | - |
+| `limit` | integer | Maximum number of results (1–10000, larger values are capped; anything else returns 400) | 100 |
+| `offset` | integer | Offset for pagination (non-negative) | 0 |
 
 **Example Request:**
 
@@ -286,7 +304,7 @@ Returns aggregated statistics for a specific connection over a time period.
 
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
-| `period` | string | Time period (e.g., `1h`, `24h`, `7d`, `30d`) | `24h` |
+| `period` | string | Time period (e.g., `1h`, `24h`, `7d`, `30d`; invalid values return 400) | `24h` |
 
 **Example Request:**
 

@@ -2,13 +2,16 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/lan-dot-party/flowgauge/internal/duration"
 	"github.com/lan-dot-party/flowgauge/internal/storage"
 	"github.com/lan-dot-party/flowgauge/pkg/version"
 )
@@ -87,30 +90,30 @@ func (s *Server) handleGetResults(w http.ResponseWriter, r *http.Request) {
 	if since := r.URL.Query().Get("since"); since != "" {
 		if t, err := time.Parse(time.RFC3339, since); err == nil {
 			filter.Since = t
-		} else if d, err := time.ParseDuration(since); err == nil {
+		} else if d, err := duration.Parse(since); err == nil {
 			filter.Since = time.Now().Add(-d)
+		} else {
+			s.writeError(w, http.StatusBadRequest, "invalid since: use RFC3339 or a duration like 24h or 7d")
+			return
 		}
 	}
 
 	if until := r.URL.Query().Get("until"); until != "" {
-		if t, err := time.Parse(time.RFC3339, until); err == nil {
-			filter.Until = t
+		t, err := time.Parse(time.RFC3339, until)
+		if err != nil {
+			s.writeError(w, http.StatusBadRequest, "invalid until: use RFC3339")
+			return
 		}
+		filter.Until = t
 	}
 
-	if limit := r.URL.Query().Get("limit"); limit != "" {
-		if l, err := strconv.Atoi(limit); err == nil && l > 0 {
-			filter.Limit = l
-		}
-	} else {
-		filter.Limit = 100 // Default limit
+	limit, offset, err := parsePaging(r.URL.Query())
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
-
-	if offset := r.URL.Query().Get("offset"); offset != "" {
-		if o, err := strconv.Atoi(offset); err == nil && o >= 0 {
-			filter.Offset = o
-		}
-	}
+	filter.Limit = limit
+	filter.Offset = offset
 
 	results, err := s.storage.GetResults(r.Context(), filter)
 	if err != nil {
@@ -195,9 +198,12 @@ func (s *Server) handleGetConnectionStats(w http.ResponseWriter, r *http.Request
 	// Parse period (default 24h)
 	period := 24 * time.Hour
 	if p := r.URL.Query().Get("period"); p != "" {
-		if d, err := time.ParseDuration(p); err == nil {
-			period = d
+		d, err := duration.Parse(p)
+		if err != nil || d == 0 {
+			s.writeError(w, http.StatusBadRequest, "invalid period: use a duration like 24h or 7d")
+			return
 		}
+		period = d
 	}
 
 	stats, err := s.storage.GetStats(r.Context(), name, period)
@@ -211,4 +217,34 @@ func (s *Server) handleGetConnectionStats(w http.ResponseWriter, r *http.Request
 		Status: "ok",
 		Data:   stats,
 	})
+}
+
+const (
+	// defaultResultsLimit applies when /api/v1/results gets no limit.
+	defaultResultsLimit = 100
+	// maxResultsLimit caps the rows one request can load, so a single
+	// request can never pull the whole table into memory.
+	maxResultsLimit = 10000
+)
+
+// parsePaging reads limit and offset for /api/v1/results. A missing limit
+// means defaultResultsLimit, a larger one is clamped to maxResultsLimit.
+// Non-numeric, zero or negative values are rejected.
+func parsePaging(q url.Values) (limit, offset int, err error) {
+	limit = defaultResultsLimit
+	if v := q.Get("limit"); v != "" {
+		l, convErr := strconv.Atoi(v)
+		if convErr != nil || l <= 0 {
+			return 0, 0, errors.New("invalid limit: must be a positive integer")
+		}
+		limit = min(l, maxResultsLimit)
+	}
+	if v := q.Get("offset"); v != "" {
+		o, convErr := strconv.Atoi(v)
+		if convErr != nil || o < 0 {
+			return 0, 0, errors.New("invalid offset: must be a non-negative integer")
+		}
+		offset = o
+	}
+	return limit, offset, nil
 }

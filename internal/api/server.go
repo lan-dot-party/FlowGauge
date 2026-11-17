@@ -4,7 +4,9 @@ package api
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -27,6 +29,8 @@ type Server struct {
 	logger     *zap.Logger
 	router     chi.Router
 	httpServer *http.Server
+	// trustedProxies are the canonical CIDRs from webserver.trusted_proxies.
+	trustedProxies []string
 }
 
 // NewServer creates a new API server instance.
@@ -43,6 +47,12 @@ func NewServer(cfg *config.Config, store storage.Storage, runner *speedtest.Mult
 		logger:     logger,
 	}
 
+	trusted, err := config.ParseTrustedProxies(cfg.Webserver.TrustedProxies)
+	if err != nil {
+		return nil, err
+	}
+	s.trustedProxies = trusted
+
 	s.setupRouter()
 	return s, nil
 }
@@ -53,28 +63,34 @@ func (s *Server) setupRouter() {
 
 	// Middleware stack
 	r.Use(chimiddleware.RequestID)
-	r.Use(chimiddleware.RealIP)
+	r.Use(clientIPMiddleware(s.trustedProxies))
 	r.Use(s.loggingMiddleware)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(60 * time.Second))
 
 	// CORS
+	// The API is read-only and the dashboard is same-origin. Cross-origin
+	// reads (e.g. a Grafana datasource in "direct"/browser mode) stay
+	// possible, but never with the visitor's credentials.
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID"},
+		AllowedMethods:   []string{"GET", "HEAD", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "X-Request-ID"},
 		ExposedHeaders:   []string{"X-Request-ID"},
-		AllowCredentials: true,
+		AllowCredentials: false,
 		MaxAge:           300,
 	}))
 
 	// Basic Auth (if configured)
-	if s.config.Auth != nil && s.config.Auth.Username != "" {
+	if authEnabled(s.config) {
 		r.Use(s.basicAuthMiddleware)
 	}
 
 	// Health check (no auth required)
 	r.Get("/health", s.handleHealth)
+
+	// Embedded dashboard assets (htmx, Chart.js, fonts)
+	r.Handle("/static/*", staticHandler())
 
 	// Dashboard (Web UI)
 	r.Get("/", s.handleDashboard)
@@ -118,6 +134,12 @@ func (s *Server) Start() error {
 		zap.String("listen", s.config.Listen),
 		zap.String("version", version.GetShortVersion()),
 	)
+	if !authEnabled(s.config) && !isLoopbackListen(s.config.Listen) {
+		s.logger.Warn("Web server listens beyond localhost without authentication; "+
+			"set webserver.auth or bind to 127.0.0.1 (fine to ignore when a reverse proxy, "+
+			"firewall or Docker port mapping already restricts access)",
+			zap.String("listen", s.config.Listen))
+	}
 
 	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("server error: %w", err)
@@ -137,3 +159,21 @@ func (s *Server) Router() chi.Router {
 	return s.router
 }
 
+// authEnabled reports whether basic auth protects the web server.
+func authEnabled(cfg *config.WebserverConfig) bool {
+	return cfg.Auth != nil && cfg.Auth.Username != "" && cfg.Auth.Password != ""
+}
+
+// isLoopbackListen reports whether a listen address only accepts local
+// connections. An empty host (":8080") listens on all interfaces.
+func isLoopbackListen(listen string) bool {
+	host, _, err := net.SplitHostPort(listen)
+	if err != nil || host == "" {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip, err := netip.ParseAddr(host)
+	return err == nil && ip.IsLoopback()
+}

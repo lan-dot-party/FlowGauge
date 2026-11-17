@@ -46,6 +46,16 @@ type PostgresConfig struct {
 	SSLMode  string `yaml:"ssl_mode"`
 }
 
+// MarshalYAML redacts the password so `flowgauge config show` never prints it.
+func (p PostgresConfig) MarshalYAML() (interface{}, error) {
+	type plain PostgresConfig // avoid recursing into this method
+	redacted := plain(p)
+	if redacted.Password != "" {
+		redacted.Password = "***"
+	}
+	return redacted, nil
+}
+
 // WebserverConfig defines the web server settings (Dashboard + API).
 type WebserverConfig struct {
 	// Enabled controls whether the web server is started
@@ -54,12 +64,26 @@ type WebserverConfig struct {
 	Listen string `yaml:"listen"`
 	// Auth contains optional authentication settings
 	Auth *AuthConfig `yaml:"auth,omitempty"`
+	// TrustedProxies lists the reverse proxies (CIDRs or single IPs) whose
+	// X-Forwarded-For header is believed. Empty means no proxy is trusted
+	// and the TCP peer address is the client IP.
+	TrustedProxies []string `yaml:"trusted_proxies,omitempty"`
 }
 
 // AuthConfig contains optional Basic Auth settings for the API.
 type AuthConfig struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
+}
+
+// MarshalYAML redacts the password so `flowgauge config show` never prints it.
+func (a AuthConfig) MarshalYAML() (interface{}, error) {
+	type plain AuthConfig // avoid recursing into this method
+	redacted := plain(a)
+	if redacted.Password != "" {
+		redacted.Password = "***"
+	}
+	return redacted, nil
 }
 
 // ConnectionConfig defines a network connection to test.

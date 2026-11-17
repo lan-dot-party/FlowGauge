@@ -8,6 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/lan-dot-party/flowgauge/internal/duration"
+	"github.com/lan-dot-party/flowgauge/internal/speedtest"
 	"github.com/lan-dot-party/flowgauge/internal/storage"
 )
 
@@ -75,11 +77,11 @@ func runResults(cmd *cobra.Command, args []string) error {
 
 	// Parse since duration
 	if resultsSince != "" {
-		duration, err := time.ParseDuration(resultsSince)
+		since, err := duration.Parse(resultsSince)
 		if err != nil {
 			return fmt.Errorf("invalid duration format for --since: %w", err)
 		}
-		filter.Since = time.Now().Add(-duration)
+		filter.Since = time.Now().Add(-since)
 	}
 
 	// Get results
@@ -112,7 +114,7 @@ func showStats(ctx context.Context, store storage.Storage) error {
 	period := 24 * time.Hour // Default 24h
 	if resultsStatsPeriod != "" {
 		var err error
-		period, err = time.ParseDuration(resultsStatsPeriod)
+		period, err = duration.Parse(resultsStatsPeriod)
 		if err != nil {
 			return fmt.Errorf("invalid duration format for --period: %w", err)
 		}
@@ -200,11 +202,9 @@ func printStats(stats *storage.Stats) {
 	}
 }
 
+// truncate strips control characters and shortens s to maxLen runes.
 func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
+	return speedtest.TruncateRunes(s, maxLen)
 }
 
 func init() {

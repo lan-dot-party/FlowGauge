@@ -98,5 +98,6 @@ If timestamps are not recognized, set in the query:
 
 ### CORS errors
 
-FlowGauge has CORS enabled by default. If issues occur:
-- Use `access: proxy` in the datasource (not `direct`)
+FlowGauge allows cross-origin GET requests without credentials. If issues occur:
+- Use `access: proxy` in the datasource (not `direct`); this is required when basic
+  auth is enabled, because browsers never send credentials cross-origin to FlowGauge

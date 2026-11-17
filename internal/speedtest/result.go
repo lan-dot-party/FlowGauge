@@ -3,7 +3,9 @@ package speedtest
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
+	"unicode"
 )
 
 // Result represents the outcome of a single speedtest.
@@ -32,6 +34,32 @@ type Result struct {
 	Error     string    `json:"error,omitempty"`
 }
 
+// SanitizeForTerminal removes control characters (C0, DEL, C1, including
+// ESC) so untrusted text such as server names or error messages cannot
+// inject terminal escape sequences.
+func SanitizeForTerminal(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// TruncateRunes sanitizes s and shortens it to at most maxLen runes,
+// replacing the cut-off part with "...".
+func TruncateRunes(s string, maxLen int) string {
+	s = SanitizeForTerminal(s)
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-3]) + "..."
+}
+
 // IsError returns true if the result represents a failed test.
 func (r *Result) IsError() bool {
 	return r.Error != ""
@@ -49,7 +77,7 @@ func (r *Result) JSON() string {
 // String returns a human-readable representation of the result.
 func (r *Result) String() string {
 	if r.IsError() {
-		return fmt.Sprintf("%s: ERROR - %s", r.ConnectionName, r.Error)
+		return fmt.Sprintf("%s: ERROR - %s", SanitizeForTerminal(r.ConnectionName), SanitizeForTerminal(r.Error))
 	}
 
 	return fmt.Sprintf(`%s:
@@ -57,9 +85,9 @@ func (r *Result) String() string {
   Latency:   %.2f ms
   Download:  %.2f Mbps
   Upload:    %.2f Mbps`,
-		r.ConnectionName,
-		r.ServerName,
-		r.ServerCountry,
+		SanitizeForTerminal(r.ConnectionName),
+		SanitizeForTerminal(r.ServerName),
+		SanitizeForTerminal(r.ServerCountry),
 		r.LatencyMs,
 		r.DownloadMbps,
 		r.UploadMbps,
@@ -69,15 +97,15 @@ func (r *Result) String() string {
 // FormatTable returns a formatted table row for CLI output.
 func (r *Result) FormatTable() string {
 	if r.IsError() {
-		return fmt.Sprintf("%-20s | %-10s | %s", r.ConnectionName, "ERROR", r.Error)
+		return fmt.Sprintf("%-20s | %-10s | %s", SanitizeForTerminal(r.ConnectionName), "ERROR", SanitizeForTerminal(r.Error))
 	}
 
 	return fmt.Sprintf("%-20s | %8.2f ms | %10.2f Mbps | %10.2f Mbps | %s",
-		r.ConnectionName,
+		SanitizeForTerminal(r.ConnectionName),
 		r.LatencyMs,
 		r.DownloadMbps,
 		r.UploadMbps,
-		r.ServerName,
+		SanitizeForTerminal(r.ServerName),
 	)
 }
 

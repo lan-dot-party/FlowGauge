@@ -5,9 +5,11 @@ version: 2
 
 project_name: flowgauge
 
+# No "go mod tidy" here: the release must build exactly the committed
+# go.mod/go.sum. CI checks tidiness with "go mod tidy -diff".
 before:
   hooks:
-    - go mod tidy
+    - go mod verify
 
 builds:
   - id: flowgauge
