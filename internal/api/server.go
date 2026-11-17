@@ -67,12 +67,15 @@ func (s *Server) setupRouter() {
 	r.Use(chimiddleware.Timeout(60 * time.Second))
 
 	// CORS
+	// The API is read-only and the dashboard is same-origin. Cross-origin
+	// reads (e.g. a Grafana datasource in "direct"/browser mode) stay
+	// possible, but never with the visitor's credentials.
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID"},
+		AllowedMethods:   []string{"GET", "HEAD", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "X-Request-ID"},
 		ExposedHeaders:   []string{"X-Request-ID"},
-		AllowCredentials: true,
+		AllowCredentials: false,
 		MaxAge:           300,
 	}))
 
