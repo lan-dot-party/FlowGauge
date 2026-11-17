@@ -53,3 +53,17 @@ func TestValidateAuthNeedsBothFields(t *testing.T) {
 		}
 	}
 }
+
+func TestValidatePostgresSSLMode(t *testing.T) {
+	for mode, wantErr := range map[string]bool{"disable": false, "verify-full": false, "": false, "off": true, "require ": true} {
+		cfg := NewDefault()
+		cfg.Connections = []ConnectionConfig{{Name: "WAN1", Enabled: true}}
+		cfg.Storage.Type = "postgres"
+		cfg.Storage.Postgres.Host = "db"
+		cfg.Storage.Postgres.Database = "fg"
+		cfg.Storage.Postgres.SSLMode = mode
+		if err := Validate(cfg); (err != nil) != wantErr {
+			t.Errorf("ssl_mode %q: err = %v, wantErr %v", mode, err, wantErr)
+		}
+	}
+}

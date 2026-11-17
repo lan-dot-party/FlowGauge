@@ -4,6 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -24,23 +28,31 @@ func NewPostgresStorage(cfg config.PostgresConfig) (*PostgresStorage, error) {
 	}, nil
 }
 
-// buildDSN creates the PostgreSQL connection string.
+// buildDSN creates the PostgreSQL connection string as a URL, so spaces,
+// quotes or "=" in any value cannot inject extra connection parameters.
 func (s *PostgresStorage) buildDSN() string {
-	// Build connection string for pgx
-	dsn := fmt.Sprintf(
-		"host=%s port=%d dbname=%s user=%s sslmode=%s",
-		s.cfg.Host,
-		s.cfg.Port,
-		s.cfg.Database,
-		s.cfg.User,
-		s.cfg.SSLMode,
-	)
-
-	if s.cfg.Password != "" {
-		dsn += fmt.Sprintf(" password=%s", s.cfg.Password)
+	q := url.Values{}
+	u := url.URL{
+		Scheme: "postgres",
+		Host:   net.JoinHostPort(s.cfg.Host, strconv.Itoa(s.cfg.Port)),
+		Path:   "/" + s.cfg.Database,
 	}
-
-	return dsn
+	if strings.HasPrefix(s.cfg.Host, "/") {
+		// Unix socket directory: not valid as URL host, pgx takes it as a parameter.
+		u.Host = ""
+		q.Set("host", s.cfg.Host)
+		q.Set("port", strconv.Itoa(s.cfg.Port))
+	}
+	if s.cfg.Password != "" {
+		u.User = url.UserPassword(s.cfg.User, s.cfg.Password)
+	} else if s.cfg.User != "" {
+		u.User = url.User(s.cfg.User)
+	}
+	if s.cfg.SSLMode != "" {
+		q.Set("sslmode", s.cfg.SSLMode)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // Init initializes the PostgreSQL database connection and schema.

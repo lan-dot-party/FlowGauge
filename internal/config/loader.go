@@ -120,6 +120,15 @@ func Validate(cfg *Config) error {
 		if cfg.Storage.Postgres.Database == "" {
 			return fmt.Errorf("postgres database is required when storage type is postgres")
 		}
+		if p := cfg.Storage.Postgres.Port; p < 1 || p > 65535 {
+			return fmt.Errorf("invalid postgres port %d", p)
+		}
+		switch cfg.Storage.Postgres.SSLMode {
+		case "", "disable", "allow", "prefer", "require", "verify-ca", "verify-full":
+		default:
+			return fmt.Errorf("invalid postgres ssl_mode %q (use disable, allow, prefer, require, verify-ca or verify-full)",
+				cfg.Storage.Postgres.SSLMode)
+		}
 	}
 
 	// Validate webserver listen address
