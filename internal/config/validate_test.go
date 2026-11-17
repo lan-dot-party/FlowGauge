@@ -2,7 +2,10 @@ package config
 
 import (
 	"reflect"
+	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestParseTrustedProxies(t *testing.T) {
@@ -65,5 +68,24 @@ func TestValidatePostgresSSLMode(t *testing.T) {
 		if err := Validate(cfg); (err != nil) != wantErr {
 			t.Errorf("ssl_mode %q: err = %v, wantErr %v", mode, err, wantErr)
 		}
+	}
+}
+
+func TestMarshalRedactsPasswords(t *testing.T) {
+	cfg := NewDefault()
+	cfg.Storage.Postgres.Password = "pg-secret-value"
+	cfg.Webserver.Auth = &AuthConfig{Username: "admin", Password: "auth-secret-value"}
+	cfg.Discord.BotToken = "discord-secret-value"
+	out, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	for _, secret := range []string{"pg-secret-value", "auth-secret-value", "discord-secret-value"} {
+		if strings.Contains(string(out), secret) {
+			t.Errorf("marshalled config contains %q", secret)
+		}
+	}
+	if !strings.Contains(string(out), "admin") {
+		t.Error("username should stay visible")
 	}
 }
