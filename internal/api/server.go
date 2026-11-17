@@ -89,6 +89,9 @@ func (s *Server) setupRouter() {
 	// Health check (no auth required)
 	r.Get("/health", s.handleHealth)
 
+	// Embedded dashboard assets (htmx, Chart.js, fonts)
+	r.Handle("/static/*", staticHandler())
+
 	// Dashboard (Web UI)
 	r.Get("/", s.handleDashboard)
 	r.Get("/dashboard", s.handleDashboard)

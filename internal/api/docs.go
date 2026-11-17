@@ -9,6 +9,7 @@ import (
 // handleAPIDocs serves the API documentation page.
 func (s *Server) handleAPIDocs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	setHTMLSecurityHeaders(w)
 	w.WriteHeader(http.StatusOK)
 	
 	html := `<!DOCTYPE html>
