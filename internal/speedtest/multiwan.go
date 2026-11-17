@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"sync"
 
 	"go.uber.org/zap"
 
@@ -34,7 +33,6 @@ type MultiWANRunner struct {
 	connections []WANConnection
 	runner      *Runner
 	logger      *zap.Logger
-	parallel    bool
 }
 
 // NewMultiWANRunner creates a new MultiWANRunner from configuration.
@@ -80,21 +78,11 @@ func NewMultiWANRunner(connections []config.ConnectionConfig, cfg *config.Speedt
 		connections: wanConns,
 		runner:      runner,
 		logger:      logger,
-		parallel:    false, // Sequential by default to avoid bandwidth competition
 	}, nil
-}
-
-// SetParallel enables or disables parallel testing.
-// Warning: Parallel tests may interfere with each other's measurements.
-func (m *MultiWANRunner) SetParallel(parallel bool) {
-	m.parallel = parallel
 }
 
 // RunAll executes speedtests for all configured connections.
 func (m *MultiWANRunner) RunAll(ctx context.Context) ([]Result, error) {
-	if m.parallel {
-		return m.runParallel(ctx)
-	}
 	return m.runSequential(ctx)
 }
 
@@ -131,51 +119,6 @@ func (m *MultiWANRunner) runSequential(ctx context.Context) ([]Result, error) {
 		}
 
 		results = append(results, *result)
-	}
-
-	return results, nil
-}
-
-// runParallel executes tests concurrently.
-func (m *MultiWANRunner) runParallel(ctx context.Context) ([]Result, error) {
-	var wg sync.WaitGroup
-	resultsChan := make(chan Result, len(m.connections))
-
-	for _, conn := range m.connections {
-		wg.Add(1)
-		go func(c WANConnection) {
-			defer wg.Done()
-
-			m.logger.Info("Testing connection (parallel)",
-				zap.String("name", c.Name),
-			)
-
-			result, err := m.runner.Run(ctx, c)
-			if err != nil {
-				m.logger.Error("Speedtest failed",
-					zap.String("connection", c.Name),
-					zap.Error(err),
-				)
-				result = &Result{
-					ConnectionName: c.Name,
-					SourceIP:       c.SourceIP,
-					DSCP:           c.DSCP,
-					Error:          err.Error(),
-				}
-			}
-
-			resultsChan <- *result
-		}(conn)
-	}
-
-	// Wait for all tests to complete
-	wg.Wait()
-	close(resultsChan)
-
-	// Collect results
-	results := make([]Result, 0, len(m.connections))
-	for result := range resultsChan {
-		results = append(results, result)
 	}
 
 	return results, nil
