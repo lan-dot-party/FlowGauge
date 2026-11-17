@@ -24,6 +24,9 @@ type Scheduler struct {
 	notifier *discord.Notifier
 	logger   *zap.Logger
 	running  bool
+
+	// cancelRuns aborts a running scheduled test (called by Stop).
+	cancelRuns context.CancelFunc
 	mu       sync.Mutex
 	jobID    cron.EntryID
 }
@@ -81,13 +84,17 @@ func (s *Scheduler) Start() error {
 
 	// Create the speedtest job
 	job := NewSpeedtestJob(s.runner, s.storage, s.notifier, s.logger)
+	runCtx, cancelRuns := context.WithCancel(context.Background())
+	job.SetBaseContext(runCtx)
 
 	// Add the job to cron
 	entryID, err := s.cron.AddFunc(s.config.Schedule, job.Run)
 	if err != nil {
+		cancelRuns()
 		return fmt.Errorf("failed to add cron job: %w (schedule: %s)", err, s.config.Schedule)
 	}
 	s.jobID = entryID
+	s.cancelRuns = cancelRuns
 
 	// Start the cron scheduler
 	s.cron.Start()
@@ -116,6 +123,10 @@ func (s *Scheduler) Stop() {
 		return
 	}
 
+	// Abort a running test so shutdown does not wait for it to finish.
+	if s.cancelRuns != nil {
+		s.cancelRuns()
+	}
 	ctx := s.cron.Stop()
 	<-ctx.Done()
 	s.running = false

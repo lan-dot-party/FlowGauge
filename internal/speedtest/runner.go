@@ -41,6 +41,14 @@ func NewRunner(cfg *config.SpeedtestConfig, logger *zap.Logger) (*Runner, error)
 func (r *Runner) Run(ctx context.Context, conn WANConnection) (*Result, error) {
 	startTime := time.Now()
 
+	// Enforce speedtest.timeout for the whole test; a cancelled parent
+	// context (e.g. shutdown) aborts it as well.
+	if r.config.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, r.config.Timeout)
+		defer cancel()
+	}
+
 	result := &Result{
 		ConnectionName: conn.Name,
 		SourceIP:       conn.SourceIP,
@@ -82,9 +90,14 @@ func (r *Runner) Run(ctx context.Context, conn WANConnection) (*Result, error) {
 
 	// Fetch server list
 	r.logger.Debug("Fetching speedtest servers")
-	serverList, err := client.FetchServers()
+	serverList, err := client.FetchServerListContext(ctx)
 	if err != nil {
 		result.Error = fmt.Sprintf("failed to fetch servers: %v", err)
+		return result, err
+	}
+
+	if err := ctx.Err(); err != nil {
+		result.Error = fmt.Sprintf("speedtest aborted: %v", err)
 		return result, err
 	}
 
@@ -123,16 +136,21 @@ func (r *Runner) Run(ctx context.Context, conn WANConnection) (*Result, error) {
 
 	// Run ping test
 	r.logger.Debug("Running latency test")
-	if err := server.PingTest(nil); err != nil {
+	if err := server.PingTestContext(ctx, nil); err != nil {
 		r.logger.Warn("Ping test failed", zap.Error(err))
 	} else {
 		result.LatencyMs = float64(server.Latency.Milliseconds())
 		result.JitterMs = float64(server.Jitter.Milliseconds())
 	}
 
+	if err := ctx.Err(); err != nil {
+		result.Error = fmt.Sprintf("speedtest aborted: %v", err)
+		return result, err
+	}
+
 	// Run download test
 	r.logger.Debug("Running download test")
-	if err := server.DownloadTest(); err != nil {
+	if err := server.DownloadTestContext(ctx); err != nil {
 		r.logger.Warn("Download test failed", zap.Error(err))
 	}
 	// Use ByteRate's Mbps() method for correct conversion
@@ -142,13 +160,23 @@ func (r *Runner) Run(ctx context.Context, conn WANConnection) (*Result, error) {
 		zap.Float64("mbps", result.DownloadMbps),
 	)
 
+	if err := ctx.Err(); err != nil {
+		result.Error = fmt.Sprintf("speedtest aborted: %v", err)
+		return result, err
+	}
+
 	// Run upload test
 	r.logger.Debug("Running upload test")
-	if err := server.UploadTest(); err != nil {
+	if err := server.UploadTestContext(ctx); err != nil {
 		r.logger.Warn("Upload test failed", zap.Error(err))
 	}
 	// Use ByteRate's Mbps() method for correct conversion
 	result.UploadMbps = server.ULSpeed.Mbps()
+
+	if err := ctx.Err(); err != nil {
+		result.Error = fmt.Sprintf("speedtest aborted: %v", err)
+		return result, err
+	}
 
 	// Calculate duration
 	result.Duration = time.Since(startTime).Seconds()

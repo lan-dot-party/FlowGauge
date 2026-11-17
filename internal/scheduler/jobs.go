@@ -18,6 +18,15 @@ type SpeedtestJob struct {
 	storage  storage.Storage
 	notifier *discord.Notifier
 	logger   *zap.Logger
+
+	// baseCtx is the parent context of scheduled runs; cancelling it aborts
+	// a running test. Defaults to context.Background().
+	baseCtx context.Context
+}
+
+// SetBaseContext sets the parent context for runs started via Run.
+func (j *SpeedtestJob) SetBaseContext(ctx context.Context) {
+	j.baseCtx = ctx
 }
 
 // NewSpeedtestJob creates a new speedtest job.
@@ -37,7 +46,11 @@ func NewSpeedtestJob(runner *speedtest.MultiWANRunner, store storage.Storage, no
 
 // Run executes the speedtest job (implements cron.Job interface).
 func (j *SpeedtestJob) Run() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	parent := j.baseCtx
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parent, 10*time.Minute)
 	defer cancel()
 
 	if err := j.RunWithContext(ctx); err != nil {
