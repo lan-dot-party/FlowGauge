@@ -1,7 +1,7 @@
 # FlowGauge
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)](https://golang.org/)
 
 > 🌐 A modular bandwidth testing tool with Multi-WAN support, DSCP flag configuration, and Grafana-compatible API.
 
@@ -235,7 +235,7 @@ Pin a version tag instead of `latest` for production.
 
 ## 🔧 System Requirements
 
-- **Go 1.22+** (for development/build)
+- **Go 1.26+** (for development/build)
 - **Linux** (recommended) - Full DSCP/Source-IP support
 - **CAP_NET_ADMIN** - Permission for DSCP marking
 

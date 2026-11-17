@@ -1,7 +1,7 @@
 # FlowGauge Dockerfile for GoReleaser
 # Uses pre-built binary from GoReleaser
 
-FROM alpine:3.21
+FROM alpine:3.23
 
 # Labels
 LABEL org.opencontainers.image.title="FlowGauge"
