@@ -113,8 +113,8 @@ Returns a list of speedtest results with optional filtering and pagination.
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
 | `connection` | string | Filter by connection name | - |
-| `since` | string | Results since (RFC3339 or duration like `24h`, `7d`) | - |
-| `until` | string | Results until (RFC3339 format) | - |
+| `since` | string | Results since (RFC3339 or duration like `24h`, `7d`, `1d12h`; invalid values return 400) | - |
+| `until` | string | Results until (RFC3339 format; invalid values return 400) | - |
 | `limit` | integer | Maximum number of results (1–10000, larger values are capped; anything else returns 400) | 100 |
 | `offset` | integer | Offset for pagination (non-negative) | 0 |
 
@@ -304,7 +304,7 @@ Returns aggregated statistics for a specific connection over a time period.
 
 | Parameter | Type | Description | Default |
 |-----------|------|-------------|---------|
-| `period` | string | Time period (e.g., `1h`, `24h`, `7d`, `30d`) | `24h` |
+| `period` | string | Time period (e.g., `1h`, `24h`, `7d`, `30d`; invalid values return 400) | `24h` |
 
 **Example Request:**
 

@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/lan-dot-party/flowgauge/internal/duration"
 	"github.com/lan-dot-party/flowgauge/internal/storage"
 	"github.com/lan-dot-party/flowgauge/pkg/version"
 )
@@ -110,14 +111,14 @@ func (s *Server) handleConnectionChartData(w http.ResponseWriter, r *http.Reques
 	
 	// Parse duration from query param (default: 24h for modal)
 	durationStr := r.URL.Query().Get("duration")
-	duration := 24 * time.Hour
+	window := 24 * time.Hour
 	if durationStr != "" {
-		if d, err := time.ParseDuration(durationStr); err == nil {
-			duration = d
+		if d, err := duration.Parse(durationStr); err == nil && d > 0 {
+			window = d
 		}
 	}
-	
-	chartData := s.getConnectionChartData(ctx, connectionName, duration)
+
+	chartData := s.getConnectionChartData(ctx, connectionName, window)
 	
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(chartData); err != nil {

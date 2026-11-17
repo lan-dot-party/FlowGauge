@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"github.com/lan-dot-party/flowgauge/internal/duration"
 	"github.com/lan-dot-party/flowgauge/internal/storage"
 	"github.com/lan-dot-party/flowgauge/pkg/version"
 )
@@ -89,15 +90,21 @@ func (s *Server) handleGetResults(w http.ResponseWriter, r *http.Request) {
 	if since := r.URL.Query().Get("since"); since != "" {
 		if t, err := time.Parse(time.RFC3339, since); err == nil {
 			filter.Since = t
-		} else if d, err := time.ParseDuration(since); err == nil {
+		} else if d, err := duration.Parse(since); err == nil {
 			filter.Since = time.Now().Add(-d)
+		} else {
+			s.writeError(w, http.StatusBadRequest, "invalid since: use RFC3339 or a duration like 24h or 7d")
+			return
 		}
 	}
 
 	if until := r.URL.Query().Get("until"); until != "" {
-		if t, err := time.Parse(time.RFC3339, until); err == nil {
-			filter.Until = t
+		t, err := time.Parse(time.RFC3339, until)
+		if err != nil {
+			s.writeError(w, http.StatusBadRequest, "invalid until: use RFC3339")
+			return
 		}
+		filter.Until = t
 	}
 
 	limit, offset, err := parsePaging(r.URL.Query())
@@ -191,9 +198,12 @@ func (s *Server) handleGetConnectionStats(w http.ResponseWriter, r *http.Request
 	// Parse period (default 24h)
 	period := 24 * time.Hour
 	if p := r.URL.Query().Get("period"); p != "" {
-		if d, err := time.ParseDuration(p); err == nil {
-			period = d
+		d, err := duration.Parse(p)
+		if err != nil || d == 0 {
+			s.writeError(w, http.StatusBadRequest, "invalid period: use a duration like 24h or 7d")
+			return
 		}
+		period = d
 	}
 
 	stats, err := s.storage.GetStats(r.Context(), name, period)
