@@ -3,8 +3,10 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
+	"strings"
 	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
@@ -125,6 +127,9 @@ func Validate(cfg *Config) error {
 		if _, _, err := net.SplitHostPort(cfg.Webserver.Listen); err != nil {
 			return fmt.Errorf("invalid webserver listen address %q: %w", cfg.Webserver.Listen, err)
 		}
+	}
+	if _, err := ParseTrustedProxies(cfg.Webserver.TrustedProxies); err != nil {
+		return err
 	}
 
 	// Validate connections
@@ -268,4 +273,28 @@ func WriteExample(path string) error {
 // boolPtr returns a pointer to v, for optional bool config fields.
 func boolPtr(v bool) *bool {
 	return &v
+}
+
+// ParseTrustedProxies turns the webserver.trusted_proxies entries into
+// canonical CIDR prefixes. A single IP becomes a /32 (IPv4) or /128 (IPv6).
+func ParseTrustedProxies(entries []string) ([]string, error) {
+	prefixes := make([]string, 0, len(entries))
+	for _, e := range entries {
+		e = strings.TrimSpace(e)
+		if strings.Contains(e, "/") {
+			p, err := netip.ParsePrefix(e)
+			if err != nil {
+				return nil, fmt.Errorf("invalid webserver trusted_proxies entry %q: %w", e, err)
+			}
+			prefixes = append(prefixes, p.Masked().String())
+			continue
+		}
+		a, err := netip.ParseAddr(e)
+		if err != nil {
+			return nil, fmt.Errorf("invalid webserver trusted_proxies entry %q: %w", e, err)
+		}
+		a = a.Unmap().WithZone("")
+		prefixes = append(prefixes, netip.PrefixFrom(a, a.BitLen()).String())
+	}
+	return prefixes, nil
 }

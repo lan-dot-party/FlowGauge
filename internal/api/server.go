@@ -27,6 +27,8 @@ type Server struct {
 	logger     *zap.Logger
 	router     chi.Router
 	httpServer *http.Server
+	// trustedProxies are the canonical CIDRs from webserver.trusted_proxies.
+	trustedProxies []string
 }
 
 // NewServer creates a new API server instance.
@@ -43,6 +45,12 @@ func NewServer(cfg *config.Config, store storage.Storage, runner *speedtest.Mult
 		logger:     logger,
 	}
 
+	trusted, err := config.ParseTrustedProxies(cfg.Webserver.TrustedProxies)
+	if err != nil {
+		return nil, err
+	}
+	s.trustedProxies = trusted
+
 	s.setupRouter()
 	return s, nil
 }
@@ -53,7 +61,7 @@ func (s *Server) setupRouter() {
 
 	// Middleware stack
 	r.Use(chimiddleware.RequestID)
-	r.Use(chimiddleware.RealIP) //nolint:staticcheck // SA1019: deprecated since chi v5.3; replacement needs a trusted-proxy decision, tracked separately
+	r.Use(clientIPMiddleware(s.trustedProxies))
 	r.Use(s.loggingMiddleware)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.Timeout(60 * time.Second))

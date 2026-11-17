@@ -205,6 +205,9 @@ Set `webserver.listen: 0.0.0.0:8080` - the default `127.0.0.1:8080` is not
 reachable through Docker's port mapping. The compose files publish the port on
 `127.0.0.1` only (for a reverse proxy on the same host); change it to
 `"8080:8080"` to expose it directly.
+To log real client IPs behind that proxy, add the address the proxy connects
+from (inside the container usually the Docker network gateway, e.g.
+`172.16.0.0/12`) to `webserver.trusted_proxies`, see [docs/api.md](docs/api.md#client-ip-behind-a-reverse-proxy).
 
 **2. Start, logs, update** (for the local path variant add `-f compose.bind.yaml`
 and first run `mkdir -p data && sudo chown 100:101 data`):

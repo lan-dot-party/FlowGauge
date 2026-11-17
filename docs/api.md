@@ -35,6 +35,24 @@ webserver:
 
 When enabled, all endpoints (except `/health`) require HTTP Basic Authentication.
 
+## Client IP behind a reverse proxy
+
+FlowGauge logs the client IP of each request (and of failed logins). By default
+it uses the TCP peer address and ignores `X-Forwarded-For`, `X-Real-IP` and
+`True-Client-IP`, so clients cannot fake it. Behind a reverse proxy, list the
+proxy addresses (CIDRs or single IPs):
+
+```yaml
+webserver:
+  trusted_proxies:
+    - 127.0.0.1
+    - ::1
+```
+
+`X-Forwarded-For` is then read only from those peers, right to left, and the
+first address outside the list is the client. The proxy must append to the
+header (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`).
+
 ---
 
 ## Response Format

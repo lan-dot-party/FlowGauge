@@ -58,6 +58,14 @@ webserver:
   #   username: admin
   #   password: your-secure-password
 
+  # Optional: reverse proxies whose X-Forwarded-For header is trusted for the
+  # client IP in the logs (CIDRs or single IPs). Leave empty when FlowGauge is
+  # reached directly; then the TCP peer address is used and headers are ignored.
+  # Example for nginx/Caddy on the same host:
+  # trusted_proxies:
+  #   - 127.0.0.1
+  #   - ::1
+
 # Network Connections to Test
 # ---------------------------
 # Define multiple connections for Multi-WAN setups.

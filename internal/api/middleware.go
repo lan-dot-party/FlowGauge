@@ -9,6 +9,27 @@ import (
 	"go.uber.org/zap"
 )
 
+// clientIPMiddleware records the client IP for logging (read it with clientIP).
+// Without trusted proxies only the TCP peer counts, so headers cannot spoof
+// it. With trusted proxies, X-Forwarded-For is walked right to left and the
+// first address outside those prefixes is the client; a request whose TCP
+// peer is not a trusted proxy keeps its peer address.
+func clientIPMiddleware(trustedProxies []string) func(http.Handler) http.Handler {
+	if len(trustedProxies) == 0 {
+		return middleware.ClientIPFromRemoteAddr
+	}
+	return middleware.ClientIPFromXFF(trustedProxies...)
+}
+
+// clientIP returns the address stored by clientIPMiddleware, or the raw
+// RemoteAddr if none could be determined (e.g. a malformed X-Forwarded-For).
+func clientIP(r *http.Request) string {
+	if ip := middleware.GetClientIP(r.Context()); ip != "" {
+		return ip
+	}
+	return r.RemoteAddr
+}
+
 // loggingMiddleware logs HTTP requests using zap.
 func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +43,7 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 				zap.Int("status", ww.Status()),
 				zap.Int("bytes", ww.BytesWritten()),
 				zap.Duration("duration", time.Since(start)),
-				zap.String("remote", r.RemoteAddr),
+				zap.String("remote", clientIP(r)),
 				zap.String("request_id", middleware.GetReqID(r.Context())),
 			)
 		}()
@@ -53,7 +74,7 @@ func (s *Server) basicAuthMiddleware(next http.Handler) http.Handler {
 		if !userMatch || !passMatch {
 			s.logger.Warn("Authentication failed",
 				zap.String("user", user),
-				zap.String("remote", r.RemoteAddr),
+				zap.String("remote", clientIP(r)),
 			)
 			s.unauthorized(w)
 			return

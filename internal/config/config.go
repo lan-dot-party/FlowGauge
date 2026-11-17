@@ -54,6 +54,10 @@ type WebserverConfig struct {
 	Listen string `yaml:"listen"`
 	// Auth contains optional authentication settings
 	Auth *AuthConfig `yaml:"auth,omitempty"`
+	// TrustedProxies lists the reverse proxies (CIDRs or single IPs) whose
+	// X-Forwarded-For header is believed. Empty means no proxy is trusted
+	// and the TCP peer address is the client IP.
+	TrustedProxies []string `yaml:"trusted_proxies,omitempty"`
 }
 
 // AuthConfig contains optional Basic Auth settings for the API.
