@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -109,13 +110,21 @@ func (m *MultiWANRunner) runSequential(ctx context.Context) ([]Result, error) {
 				zap.String("connection", conn.Name),
 				zap.Error(err),
 			)
-			// Create error result instead of failing completely
-			result = &Result{
-				ConnectionName: conn.Name,
-				SourceIP:       conn.SourceIP,
-				DSCP:           conn.DSCP,
-				Error:          err.Error(),
+			// Keep the runner's partial result (timestamp, server) and record
+			// the error instead of failing completely.
+			if result == nil {
+				result = &Result{
+					ConnectionName: conn.Name,
+					SourceIP:       conn.SourceIP,
+					DSCP:           conn.DSCP,
+				}
 			}
+			if result.Error == "" {
+				result.Error = err.Error()
+			}
+		}
+		if result.Timestamp.IsZero() {
+			result.Timestamp = time.Now()
 		}
 
 		results = append(results, *result)
