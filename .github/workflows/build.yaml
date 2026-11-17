@@ -18,6 +18,9 @@ on:
       - '**.md'
       - 'docs/**'
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build
@@ -37,7 +40,9 @@ jobs:
         run: go mod download
 
       - name: Verify dependencies
-        run: go mod verify
+        run: |
+          go mod verify
+          go mod tidy -diff
 
       - name: Build
         run: |
@@ -99,7 +104,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: v2.15.0
           args: --timeout=5m
 
   build-platforms:
