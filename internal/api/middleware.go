@@ -72,8 +72,9 @@ func (s *Server) basicAuthMiddleware(next http.Handler) http.Handler {
 		passMatch := subtle.ConstantTimeCompare([]byte(pass), []byte(s.config.Auth.Password)) == 1
 
 		if !userMatch || !passMatch {
+			// The submitted username is not logged: it is attacker-controlled
+			// and often a mistyped password.
 			s.logger.Warn("Authentication failed",
-				zap.String("user", user),
 				zap.String("remote", clientIP(r)),
 			)
 			s.unauthorized(w)

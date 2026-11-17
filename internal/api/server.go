@@ -4,7 +4,9 @@ package api
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -80,7 +82,7 @@ func (s *Server) setupRouter() {
 	}))
 
 	// Basic Auth (if configured)
-	if s.config.Auth != nil && s.config.Auth.Username != "" {
+	if authEnabled(s.config) {
 		r.Use(s.basicAuthMiddleware)
 	}
 
@@ -129,6 +131,12 @@ func (s *Server) Start() error {
 		zap.String("listen", s.config.Listen),
 		zap.String("version", version.GetShortVersion()),
 	)
+	if !authEnabled(s.config) && !isLoopbackListen(s.config.Listen) {
+		s.logger.Warn("Web server listens beyond localhost without authentication; "+
+			"set webserver.auth or bind to 127.0.0.1 (fine to ignore when a reverse proxy, "+
+			"firewall or Docker port mapping already restricts access)",
+			zap.String("listen", s.config.Listen))
+	}
 
 	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("server error: %w", err)
@@ -148,3 +156,21 @@ func (s *Server) Router() chi.Router {
 	return s.router
 }
 
+// authEnabled reports whether basic auth protects the web server.
+func authEnabled(cfg *config.WebserverConfig) bool {
+	return cfg.Auth != nil && cfg.Auth.Username != "" && cfg.Auth.Password != ""
+}
+
+// isLoopbackListen reports whether a listen address only accepts local
+// connections. An empty host (":8080") listens on all interfaces.
+func isLoopbackListen(listen string) bool {
+	host, _, err := net.SplitHostPort(listen)
+	if err != nil || host == "" {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip, err := netip.ParseAddr(host)
+	return err == nil && ip.IsLoopback()
+}

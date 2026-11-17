@@ -33,3 +33,23 @@ func TestValidateRejectsBadTrustedProxy(t *testing.T) {
 		t.Error("expected error for hostname in trusted_proxies")
 	}
 }
+
+func TestValidateAuthNeedsBothFields(t *testing.T) {
+	for _, tc := range []struct {
+		auth    *AuthConfig
+		wantErr bool
+	}{
+		{nil, false},
+		{&AuthConfig{}, false},
+		{&AuthConfig{Username: "admin", Password: "secret"}, false},
+		{&AuthConfig{Username: "admin"}, true},
+		{&AuthConfig{Password: "secret"}, true},
+	} {
+		cfg := NewDefault()
+		cfg.Connections = []ConnectionConfig{{Name: "WAN1", Enabled: true}}
+		cfg.Webserver.Auth = tc.auth
+		if err := Validate(cfg); (err != nil) != tc.wantErr {
+			t.Errorf("auth %+v: err = %v, wantErr %v", tc.auth, err, tc.wantErr)
+		}
+	}
+}

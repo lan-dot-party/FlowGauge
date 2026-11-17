@@ -131,6 +131,11 @@ func Validate(cfg *Config) error {
 	if _, err := ParseTrustedProxies(cfg.Webserver.TrustedProxies); err != nil {
 		return err
 	}
+	if a := cfg.Webserver.Auth; a != nil && (a.Username != "" || a.Password != "") {
+		if a.Username == "" || a.Password == "" {
+			return fmt.Errorf("webserver auth needs both username and password")
+		}
+	}
 
 	// Validate connections
 	if len(cfg.Connections) == 0 {

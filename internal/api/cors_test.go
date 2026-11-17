@@ -43,3 +43,20 @@ func TestCORSNeverAllowsCredentials(t *testing.T) {
 		t.Errorf("preflight for POST allowed methods %q, want none", got)
 	}
 }
+
+func TestIsLoopbackListen(t *testing.T) {
+	for listen, want := range map[string]bool{
+		"127.0.0.1:9020": true,
+		"[::1]:8080":     true,
+		"localhost:8080": true,
+		"0.0.0.0:8080":   false,
+		":8080":          false,
+		"[::]:8080":      false,
+		"10.0.0.5:8080":  false,
+		"garbage":        false,
+	} {
+		if got := isLoopbackListen(listen); got != want {
+			t.Errorf("isLoopbackListen(%q) = %v, want %v", listen, got, want)
+		}
+	}
+}
