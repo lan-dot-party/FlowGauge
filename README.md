@@ -176,7 +176,6 @@ Accessible at `http://localhost:8080/` when the server is running.
 ```bash
 docker run -d \
   --name flowgauge \
-  --cap-add NET_ADMIN \
   -v ./config.yaml:/etc/flowgauge/config.yaml:ro \
   -v flowgauge-data:/var/lib/flowgauge \
   -p 8080:8080 \
@@ -231,7 +230,7 @@ tar czf flowgauge-backup.tgz data config.yaml
 docker compose start
 ```
 
-**Capabilities.** `NET_ADMIN` and `NET_RAW` are only needed for DSCP marking.
+**Capabilities.** No extra Linux capabilities are needed (DSCP marking works unprivileged).
 For Multi-WAN setups with `source_ip`, the address must exist inside the
 container; use `network_mode: host` (see the comment in the compose files).
 Pin a version tag instead of `latest` for production.
@@ -240,7 +239,6 @@ Pin a version tag instead of `latest` for production.
 
 - **Go 1.26+** (for development/build)
 - **Linux** (recommended) - Full DSCP/Source-IP support
-- **CAP_NET_ADMIN** - Permission for DSCP marking
 
 ## 📖 Documentation
 

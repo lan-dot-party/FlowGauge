@@ -40,9 +40,8 @@ ProtectControlGroups=true
 RestrictSUIDSGID=true
 RestrictRealtime=true
 
-# Allow network access and DSCP marking
+# Allow network access (DSCP marking works without extra capabilities)
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
 
 # Allow write to data directory
 ReadWritePaths=/var/lib/flowgauge

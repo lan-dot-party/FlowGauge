@@ -38,11 +38,6 @@ if [ ! -f /etc/flowgauge/config.yaml ]; then
     fi
 fi
 
-# Set capabilities for DSCP marking (optional, only if binary exists)
-if [ -f /usr/bin/flowgauge ] && command -v setcap >/dev/null 2>&1; then
-    setcap 'cap_net_admin,cap_net_raw+ep' /usr/bin/flowgauge 2>/dev/null || true
-fi
-
 # Reload systemd only when it is actually running (not in containers/chroots)
 if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
