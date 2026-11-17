@@ -2,7 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -98,19 +100,13 @@ func (s *Server) handleGetResults(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if limit := r.URL.Query().Get("limit"); limit != "" {
-		if l, err := strconv.Atoi(limit); err == nil && l > 0 {
-			filter.Limit = l
-		}
-	} else {
-		filter.Limit = 100 // Default limit
+	limit, offset, err := parsePaging(r.URL.Query())
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
-
-	if offset := r.URL.Query().Get("offset"); offset != "" {
-		if o, err := strconv.Atoi(offset); err == nil && o >= 0 {
-			filter.Offset = o
-		}
-	}
+	filter.Limit = limit
+	filter.Offset = offset
 
 	results, err := s.storage.GetResults(r.Context(), filter)
 	if err != nil {
@@ -211,4 +207,34 @@ func (s *Server) handleGetConnectionStats(w http.ResponseWriter, r *http.Request
 		Status: "ok",
 		Data:   stats,
 	})
+}
+
+const (
+	// defaultResultsLimit applies when /api/v1/results gets no limit.
+	defaultResultsLimit = 100
+	// maxResultsLimit caps the rows one request can load, so a single
+	// request can never pull the whole table into memory.
+	maxResultsLimit = 10000
+)
+
+// parsePaging reads limit and offset for /api/v1/results. A missing limit
+// means defaultResultsLimit, a larger one is clamped to maxResultsLimit.
+// Non-numeric, zero or negative values are rejected.
+func parsePaging(q url.Values) (limit, offset int, err error) {
+	limit = defaultResultsLimit
+	if v := q.Get("limit"); v != "" {
+		l, convErr := strconv.Atoi(v)
+		if convErr != nil || l <= 0 {
+			return 0, 0, errors.New("invalid limit: must be a positive integer")
+		}
+		limit = min(l, maxResultsLimit)
+	}
+	if v := q.Get("offset"); v != "" {
+		o, convErr := strconv.Atoi(v)
+		if convErr != nil || o < 0 {
+			return 0, 0, errors.New("invalid offset: must be a non-negative integer")
+		}
+		offset = o
+	}
+	return limit, offset, nil
 }

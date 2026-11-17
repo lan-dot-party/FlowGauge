@@ -115,8 +115,8 @@ Returns a list of speedtest results with optional filtering and pagination.
 | `connection` | string | Filter by connection name | - |
 | `since` | string | Results since (RFC3339 or duration like `24h`, `7d`) | - |
 | `until` | string | Results until (RFC3339 format) | - |
-| `limit` | integer | Maximum number of results | 100 |
-| `offset` | integer | Offset for pagination | 0 |
+| `limit` | integer | Maximum number of results (1–10000, larger values are capped; anything else returns 400) | 100 |
+| `offset` | integer | Offset for pagination (non-negative) | 0 |
 
 **Example Request:**
 
