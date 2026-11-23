@@ -30,7 +30,7 @@ jobs:
       FILE: ${{ matrix.file }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Prepare config
         # The example config listens on 127.0.0.1, which Docker's port mapping
