@@ -37,6 +37,13 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 3
+    # Stay on the Go version of go.mod and CI (1.26) until all lan.party tools
+    # move to a newer Go together; patch updates of the image still come in.
+    ignore:
+      - dependency-name: "golang"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
     commit-message:
       prefix: "docker"
     labels:
